@@ -9,8 +9,50 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ResultsRouteImport } from './routes/results'
+import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as ConstellationRouteImport } from './routes/constellation'
+import { Route as ConfigureRouteImport } from './routes/configure'
+import { Route as AttackRouteImport } from './routes/attack'
+import { Route as AdversaryRouteImport } from './routes/adversary'
 import { Route as IndexRouteImport } from './routes/index'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResultsRoute = ResultsRouteImport.update({
+  id: '/results',
+  path: '/results',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsRoute = ReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConstellationRoute = ConstellationRouteImport.update({
+  id: '/constellation',
+  path: '/constellation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfigureRoute = ConfigureRouteImport.update({
+  id: '/configure',
+  path: '/configure',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AttackRoute = AttackRouteImport.update({
+  id: '/attack',
+  path: '/attack',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdversaryRoute = AdversaryRouteImport.update({
+  id: '/adversary',
+  path: '/adversary',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -19,28 +61,130 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/adversary': typeof AdversaryRoute
+  '/attack': typeof AttackRoute
+  '/configure': typeof ConfigureRoute
+  '/constellation': typeof ConstellationRoute
+  '/reports': typeof ReportsRoute
+  '/results': typeof ResultsRoute
+  '/settings': typeof SettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/adversary': typeof AdversaryRoute
+  '/attack': typeof AttackRoute
+  '/configure': typeof ConfigureRoute
+  '/constellation': typeof ConstellationRoute
+  '/reports': typeof ReportsRoute
+  '/results': typeof ResultsRoute
+  '/settings': typeof SettingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/adversary': typeof AdversaryRoute
+  '/attack': typeof AttackRoute
+  '/configure': typeof ConfigureRoute
+  '/constellation': typeof ConstellationRoute
+  '/reports': typeof ReportsRoute
+  '/results': typeof ResultsRoute
+  '/settings': typeof SettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/adversary'
+    | '/attack'
+    | '/configure'
+    | '/constellation'
+    | '/reports'
+    | '/results'
+    | '/settings'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/adversary'
+    | '/attack'
+    | '/configure'
+    | '/constellation'
+    | '/reports'
+    | '/results'
+    | '/settings'
+  id:
+    | '__root__'
+    | '/'
+    | '/adversary'
+    | '/attack'
+    | '/configure'
+    | '/constellation'
+    | '/reports'
+    | '/results'
+    | '/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdversaryRoute: typeof AdversaryRoute
+  AttackRoute: typeof AttackRoute
+  ConfigureRoute: typeof ConfigureRoute
+  ConstellationRoute: typeof ConstellationRoute
+  ReportsRoute: typeof ReportsRoute
+  ResultsRoute: typeof ResultsRoute
+  SettingsRoute: typeof SettingsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/results': {
+      id: '/results'
+      path: '/results'
+      fullPath: '/results'
+      preLoaderRoute: typeof ResultsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports': {
+      id: '/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/constellation': {
+      id: '/constellation'
+      path: '/constellation'
+      fullPath: '/constellation'
+      preLoaderRoute: typeof ConstellationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/configure': {
+      id: '/configure'
+      path: '/configure'
+      fullPath: '/configure'
+      preLoaderRoute: typeof ConfigureRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/attack': {
+      id: '/attack'
+      path: '/attack'
+      fullPath: '/attack'
+      preLoaderRoute: typeof AttackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/adversary': {
+      id: '/adversary'
+      path: '/adversary'
+      fullPath: '/adversary'
+      preLoaderRoute: typeof AdversaryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -53,6 +197,13 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdversaryRoute: AdversaryRoute,
+  AttackRoute: AttackRoute,
+  ConfigureRoute: ConfigureRoute,
+  ConstellationRoute: ConstellationRoute,
+  ReportsRoute: ReportsRoute,
+  ResultsRoute: ResultsRoute,
+  SettingsRoute: SettingsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
