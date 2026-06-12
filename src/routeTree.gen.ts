@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ScenariosRouteImport } from './routes/scenarios'
 import { Route as ResultsRouteImport } from './routes/results'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ConstellationRouteImport } from './routes/constellation'
@@ -21,6 +22,11 @@ import { Route as IndexRouteImport } from './routes/index'
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ScenariosRoute = ScenariosRouteImport.update({
+  id: '/scenarios',
+  path: '/scenarios',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResultsRoute = ResultsRouteImport.update({
@@ -67,6 +73,7 @@ export interface FileRoutesByFullPath {
   '/constellation': typeof ConstellationRoute
   '/reports': typeof ReportsRoute
   '/results': typeof ResultsRoute
+  '/scenarios': typeof ScenariosRoute
   '/settings': typeof SettingsRoute
 }
 export interface FileRoutesByTo {
@@ -77,6 +84,7 @@ export interface FileRoutesByTo {
   '/constellation': typeof ConstellationRoute
   '/reports': typeof ReportsRoute
   '/results': typeof ResultsRoute
+  '/scenarios': typeof ScenariosRoute
   '/settings': typeof SettingsRoute
 }
 export interface FileRoutesById {
@@ -88,6 +96,7 @@ export interface FileRoutesById {
   '/constellation': typeof ConstellationRoute
   '/reports': typeof ReportsRoute
   '/results': typeof ResultsRoute
+  '/scenarios': typeof ScenariosRoute
   '/settings': typeof SettingsRoute
 }
 export interface FileRouteTypes {
@@ -100,6 +109,7 @@ export interface FileRouteTypes {
     | '/constellation'
     | '/reports'
     | '/results'
+    | '/scenarios'
     | '/settings'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -110,6 +120,7 @@ export interface FileRouteTypes {
     | '/constellation'
     | '/reports'
     | '/results'
+    | '/scenarios'
     | '/settings'
   id:
     | '__root__'
@@ -120,6 +131,7 @@ export interface FileRouteTypes {
     | '/constellation'
     | '/reports'
     | '/results'
+    | '/scenarios'
     | '/settings'
   fileRoutesById: FileRoutesById
 }
@@ -131,6 +143,7 @@ export interface RootRouteChildren {
   ConstellationRoute: typeof ConstellationRoute
   ReportsRoute: typeof ReportsRoute
   ResultsRoute: typeof ResultsRoute
+  ScenariosRoute: typeof ScenariosRoute
   SettingsRoute: typeof SettingsRoute
 }
 
@@ -141,6 +154,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/scenarios': {
+      id: '/scenarios'
+      path: '/scenarios'
+      fullPath: '/scenarios'
+      preLoaderRoute: typeof ScenariosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/results': {
@@ -203,6 +223,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConstellationRoute: ConstellationRoute,
   ReportsRoute: ReportsRoute,
   ResultsRoute: ResultsRoute,
+  ScenariosRoute: ScenariosRoute,
   SettingsRoute: SettingsRoute,
 }
 export const routeTree = rootRouteImport
