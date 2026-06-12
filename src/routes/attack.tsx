@@ -3,7 +3,7 @@ import { useState, useMemo } from "react";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
 import {
   Radio, Zap, Terminal, Server, BrainCircuit, Play, ChevronDown, ChevronRight,
-  Satellite, Network, Trash2, Bot, Workflow, Activity,
+  Trash2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/attack")({
@@ -80,7 +80,7 @@ function Check({ checked, onChange, label }: { checked: boolean; onChange: (v: b
 function Attack() {
   const navigate = useNavigate();
   const [sat, setSat] = useState("Sentinel-1A");
-  const [mode, setMode] = useState<"single" | "constellation">("single");
+  
   const [attack, setAttack] = useState<AttackId>("ai-gnss");
   const [actor, setActor] = useState("apt");
   const [open, setOpen] = useState(false);
@@ -112,20 +112,14 @@ function Attack() {
   const [uq, setUq] = useState(true);
   const [sa, setSa] = useState(true);
 
-  // scenarios + adversary
-  const [scenario, setScenario] = useState("Communications Disruption (RF → GS → CMD)");
-  const [objective, setObjective] = useState("Maximum Damage");
-  const [advIters, setAdvIters] = useState(5);
-
   const activeAttack = useMemo(() => LIVE.find((l) => l.id === attack)!, [attack]);
 
   function go() {
-    if (mode === "constellation") navigate({ to: "/constellation" });
-    else navigate({ to: "/results" });
+    navigate({ to: "/results" });
   }
 
   return (
-    <AppShell title="New Simulation" subtitle="MISSION PLANNER · ATTACK CONFIGURATION">
+    <AppShell title="New Simulation" subtitle="SINGLE SATELLITE · ATTACK CONFIGURATION">
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         {/* LEFT/MAIN */}
         <div className="xl:col-span-2 space-y-4">
@@ -141,29 +135,6 @@ function Attack() {
             </div>
           </Panel>
 
-          {/* Mode toggle */}
-          <Panel title="Simulation Mode">
-            <div className="p-4 grid grid-cols-2 gap-3">
-              {[
-                { id: "single", label: "SINGLE SATELLITE", icon: Satellite, desc: "Run attack against one asset" },
-                { id: "constellation", label: "CONSTELLATION", icon: Network, desc: "Multi-asset propagation model" },
-              ].map((m) => {
-                const active = mode === m.id;
-                return (
-                  <button key={m.id} onClick={() => setMode(m.id as any)}
-                    className={`p-4 rounded-md border text-left transition-all ${
-                      active ? "border-primary bg-primary/10" : "border-border bg-surface-2 hover:border-primary/40"
-                    }`}>
-                    <div className="flex items-center gap-2">
-                      <m.icon className={`h-4 w-4 ${active ? "text-primary" : "text-muted-foreground"}`} />
-                      <span className={`text-xs font-mono tracking-[0.14em] ${active ? "text-primary" : ""}`}>{m.label}</span>
-                    </div>
-                    <div className="text-[11px] text-muted-foreground mt-1.5">{m.desc}</div>
-                  </button>
-                );
-              })}
-            </div>
-          </Panel>
 
           {/* Attack dropdown */}
           <Panel title="Attack Type" action={<span className="text-[10px] font-mono text-muted-foreground">5 LIVE · 20 PIPELINE</span>}>
@@ -321,54 +292,7 @@ function Attack() {
             </button>
           </div>
 
-          {/* Mission Scenarios */}
-          <Panel title="Mission Scenarios" action={<Workflow className="h-3.5 w-3.5 text-primary" />}>
-            <div className="p-5 space-y-4">
-              <p className="text-xs text-muted-foreground">Multi-phase attacks with state forwarding — Phase 2 starts with Phase 1's damage.</p>
-              <Field label="Scenario">
-                <Select value={scenario} onChange={setScenario} options={[
-                  "Communications Disruption (RF → GS → CMD)",
-                  "Earth Obs. Espionage (AI → CMD → GS)",
-                  "GPS Constellation Attack (GPS → AI → CMD)",
-                ]} />
-              </Field>
-              <button onClick={go}
-                className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md font-display font-bold tracking-[0.2em] text-primary-foreground"
-                style={{ background: "linear-gradient(90deg, oklch(0.6 0.16 200), oklch(0.75 0.16 200))" }}>
-                <Activity className="h-4 w-4" /> EXECUTE SCENARIO
-              </button>
-            </div>
-          </Panel>
 
-          {/* Agentic AI Adversary */}
-          <Panel title="Agentic AI Adversary" action={<Bot className="h-3.5 w-3.5" style={{ color: "oklch(0.7 0.22 300)" }} />}>
-            <div className="p-5 space-y-4 relative">
-              <div className="absolute inset-0 pointer-events-none opacity-20" style={{ background: "radial-gradient(circle at top right, oklch(0.5 0.2 300 / 0.3), transparent 60%)" }} />
-              <div className="relative">
-                <div className="font-display font-semibold text-base" style={{ color: "oklch(0.78 0.18 300)" }}>Agentic AI Adversary</div>
-                <p className="text-xs text-muted-foreground mt-1">An AI adversary agent autonomously observes satellite state, reasons about defenses, and selects attacks dynamically.</p>
-              </div>
-              <Field label="Objective">
-                <Select value={objective} onChange={setObjective} options={["Maximum Damage", "Stealth Campaign", "Targeted (Payload/ADCS)"]} />
-              </Field>
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-mono uppercase tracking-[0.14em] text-muted-foreground">Iterations</span>
-                  <span className="font-mono text-sm" style={{ color: "oklch(0.78 0.18 300)" }}>{advIters}</span>
-                </div>
-                <input type="range" min={3} max={10} value={advIters} onChange={(e) => setAdvIters(+e.target.value)} className="w-full" style={{ accentColor: "oklch(0.65 0.22 300)" }} />
-                <div className="flex justify-between text-[10px] font-mono text-muted-foreground mt-1">
-                  <span>3</span><span>10</span>
-                </div>
-              </div>
-              <Link to="/adversary">
-                <button className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md font-display font-bold tracking-[0.2em] text-white"
-                  style={{ background: "linear-gradient(90deg, oklch(0.45 0.22 300), oklch(0.65 0.24 300))", boxShadow: "0 0 40px -8px oklch(0.65 0.24 300 / 0.6)" }}>
-                  <BrainCircuit className="h-4 w-4" /> DEPLOY ADVERSARY
-                </button>
-              </Link>
-            </div>
-          </Panel>
         </div>
 
         {/* RIGHT: Subsystem Health preview */}
@@ -395,7 +319,7 @@ function Attack() {
 
           <Panel title="Mission Brief">
             <div className="p-5 space-y-2 text-xs font-mono">
-              <div className="flex justify-between"><span className="text-muted-foreground">MODE</span><span className="text-primary">{mode === "single" ? "SINGLE SAT" : "CONSTELLATION"}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">MODE</span><span className="text-primary">SINGLE SAT</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">TARGET</span><span>{sat}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">VECTOR</span><span className="text-primary">{activeAttack.name}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">ACTOR</span><span className="text-high">{ACTORS.find((a) => a.id === actor)?.name}</span></div>
