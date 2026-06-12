@@ -1,182 +1,410 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState, useMemo } from "react";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
 import {
-  Radio, Zap, Terminal, Server, BrainCircuit, Lock, Antenna, Radar,
-  Cpu, Skull, Plane, Cloud, Truck, Play, ChevronRight,
+  Radio, Zap, Terminal, Server, BrainCircuit, Play, ChevronDown, ChevronRight,
+  Satellite, Network, Trash2, Bot, Workflow, Activity,
 } from "lucide-react";
 
 export const Route = createFileRoute("/attack")({
   head: () => ({
     meta: [
-      { title: "Attack Selection — OrbitSec" },
-      { name: "description", content: "Choose attack vector, threat actor profile, and simulation parameters." },
+      { title: "New Simulation — OrbitSec" },
+      { name: "description", content: "Configure attack vector, threat actor, and simulation parameters." },
     ],
   }),
   component: Attack,
 });
 
-const LIVE_ATTACKS = [
-  { id: "gps-spoof", name: "GPS Spoofing", desc: "Inject false GNSS signals to corrupt navigation solution.", icon: Radio, surface: "RF · L1/L2" },
-  { id: "rf-jam", name: "RF Jamming", desc: "Broadband noise injection to deny uplink/downlink.", icon: Zap, surface: "RF · X-band" },
-  { id: "cmd-inj", name: "Command Injection", desc: "Unauthorized TC stream via spoofed ground station auth.", icon: Terminal, surface: "C&DH" },
-  { id: "gs-comp", name: "Ground Station Compromise", desc: "Lateral move from ground network to mission planning.", icon: Server, surface: "GROUND" },
-  { id: "ai-gnss", name: "AI-Adaptive GNSS Spoofing", desc: "RL-driven spoof tuned to victim Kalman filter.", icon: BrainCircuit, surface: "RF · ML" },
+type AttackId =
+  | "gps-spoof" | "rf-jam" | "cmd-inj" | "gs-comp" | "ai-gnss";
+
+const LIVE: { id: AttackId; name: string; surface: string; icon: any }[] = [
+  { id: "gps-spoof", name: "GPS Spoofing", surface: "RF · L1/L2", icon: Radio },
+  { id: "rf-jam", name: "RF Jamming", surface: "RF · X-band", icon: Zap },
+  { id: "cmd-inj", name: "Command Injection", surface: "C&DH", icon: Terminal },
+  { id: "gs-comp", name: "Ground Station Compromise", surface: "GROUND", icon: Server },
+  { id: "ai-gnss", name: "AI-Adaptive GNSS Spoofing", surface: "RF · ML", icon: BrainCircuit },
 ];
 
-const SOON = [
-  { name: "GPS Jamming", icon: Radio }, { name: "Crosslink Jamming", icon: Antenna },
-  { name: "Meaconing", icon: Radar }, { name: "Uplink Jamming", icon: Zap },
-  { name: "Downlink Jamming", icon: Zap }, { name: "Malware Injection", icon: Cpu },
-  { name: "Denial of Service", icon: Lock }, { name: "Kinetic ASAT", icon: Skull },
-  { name: "Space Weather", icon: Cloud }, { name: "Supply Chain Attack", icon: Truck },
+const SOON_GROUPS: { label: string; items: string[] }[] = [
+  { label: "RF / Communications", items: ["GPS Jamming", "Crosslink Jamming", "Meaconing", "Uplink Jamming", "Downlink Jamming", "Anti-Jam Testing"] },
+  { label: "Cyber", items: ["Malware Injection", "Denial of Service", "Data Manipulation", "Signal Auth Bypass", "APT Attack", "Data Exfiltration"] },
+  { label: "Physical / Kinetic", items: ["Laser Dazzling", "EMP Attack", "Kinetic ASAT", "Space Weather", "Orbital Collision"] },
+  { label: "Advanced", items: ["Supply Chain Attack", "Multi-Stage Attack", "Cascading Failure"] },
 ];
 
 const ACTORS = [
-  { id: "nation", name: "Nation-State", tag: "TIER-1 APT", desc: "Persistent, well-funded, multi-vector. Long dwell time.", level: "CRITICAL", traits: ["Zero-days", "Custom implants", "Multi-vector"] },
-  { id: "apt", name: "Sophisticated APT", tag: "TIER-2", desc: "Skilled criminal/contractor. Known tradecraft, adaptable.", level: "HIGH", traits: ["Known TTPs", "Phishing", "Lateral"] },
-  { id: "insider", name: "Insider Threat", tag: "TRUSTED", desc: "Authorized operator with malicious or compromised intent.", level: "HIGH", traits: ["Credentialed", "Bypass MFA", "Audit-aware"] },
+  { id: "nation", name: "Nation-State", tag: "TIER-1 APT", level: "CRITICAL" as const, accent: "critical", desc: "Military-grade EW, protocol insider knowledge, advanced meaconing — hardest to defend against" },
+  { id: "apt", name: "Sophisticated APT", tag: "TIER-2", level: "HIGH" as const, accent: "high", desc: "Well-funded APT group with commercial EW tools and deep satellite protocol knowledge" },
+  { id: "insider", name: "Insider Threat", tag: "TRUSTED", level: "HIGH" as const, accent: "primary", desc: "Malicious insider with physical/logical ground system access — GPS/RF/AI attacks NOT APPLICABLE" },
 ];
 
+const SATS = ["Sentinel-1A", "SBIRS-GEO-5", "WorldView-3", "GOES-18", "WGS-10"];
+
+// ---------- primitives ----------
+function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
+  return (
+    <label className="block">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[11px] font-mono uppercase tracking-[0.14em] text-muted-foreground">{label}</span>
+        {hint && <span className="text-[10px] font-mono text-muted-foreground">{hint}</span>}
+      </div>
+      {children}
+    </label>
+  );
+}
+function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  return <input {...props} className={`w-full h-9 px-3 rounded-md bg-surface-2 border border-border text-sm font-mono focus:outline-none focus:border-primary ${props.className ?? ""}`} />;
+}
+function Select({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: string[] }) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)}
+      className="w-full h-9 px-3 rounded-md bg-surface-2 border border-border text-sm font-mono focus:outline-none focus:border-primary">
+      {options.map((o) => <option key={o} value={o}>{o}</option>)}
+    </select>
+  );
+}
+function Check({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <button onClick={() => onChange(!checked)} type="button"
+      className="w-full panel-2 px-3 py-2.5 flex items-center gap-3 hover:border-primary/40 text-left">
+      <span className={`h-4 w-4 rounded border ${checked ? "bg-primary border-primary" : "border-border bg-background"}`}>
+        {checked && <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 text-primary-foreground"><path fill="currentColor" d="M6.5 11L3 7.5l1-1 2.5 2.5 5.5-5.5 1 1z"/></svg>}
+      </span>
+      <span className="text-sm">{label}</span>
+    </button>
+  );
+}
+
 function Attack() {
-  const [selectedAttack, setSelectedAttack] = useState("ai-gnss");
-  const [actor, setActor] = useState("nation");
-  const [duration, setDuration] = useState(450);
+  const navigate = useNavigate();
+  const [sat, setSat] = useState("Sentinel-1A");
+  const [mode, setMode] = useState<"single" | "constellation">("single");
+  const [attack, setAttack] = useState<AttackId>("ai-gnss");
+  const [actor, setActor] = useState("apt");
+  const [open, setOpen] = useState(false);
+
+  // params
+  const [posOffset, setPosOffset] = useState(12000);
+  const [sigPower, setSigPower] = useState(150);
+  const [jamPower, setJamPower] = useState(100);
+  const [jamFreq, setJamFreq] = useState(2200);
+  const [jamType, setJamType] = useState("Barrage");
+  const [cmdType, setCmdType] = useState("Attitude Change");
+  const [bypass, setBypass] = useState("Weak Crypto");
+  const [gsPath, setGsPath] = useState("Network Intrusion");
+  const [gsVector, setGsVector] = useState("Cyber Attack");
+  const [gsCompLvl, setGsCompLvl] = useState("Operator Workstation");
+  const [gsCovert, setGsCovert] = useState("Yes");
+  const [termType, setTermType] = useState("Linux-based COTS Modem");
+  const [fwUpdate, setFwUpdate] = useState("Over-the-Air (OTA)");
+  const [secureBoot, setSecureBoot] = useState("Disabled");
+  const [debugPort, setDebugPort] = useState("Exposed");
+  const [cmdSigning, setCmdSigning] = useState("Disabled");
+  const [iters, setIters] = useState(25);
+  const [explore, setExplore] = useState(0.3);
+  const [stealth, setStealth] = useState(0.3);
+
+  // sim
+  const [severity, setSeverity] = useState(70);
+  const [duration, setDuration] = useState(300);
   const [uq, setUq] = useState(true);
   const [sa, setSa] = useState(true);
-  const [sat, setSat] = useState("Sentinel-1A");
+
+  // scenarios + adversary
+  const [scenario, setScenario] = useState("Communications Disruption (RF → GS → CMD)");
+  const [objective, setObjective] = useState("Maximum Damage");
+  const [advIters, setAdvIters] = useState(5);
+
+  const activeAttack = useMemo(() => LIVE.find((l) => l.id === attack)!, [attack]);
+
+  function go() {
+    if (mode === "constellation") navigate({ to: "/constellation" });
+    else navigate({ to: "/results" });
+  }
 
   return (
-    <AppShell title="Attack Selection" subtitle="MISSION PLANNER · STEP 2 OF 3">
+    <AppShell title="New Simulation" subtitle="MISSION PLANNER · ATTACK CONFIGURATION">
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        {/* LEFT/MAIN */}
         <div className="xl:col-span-2 space-y-4">
-          <Panel title="Target Asset" action={<Link to="/configure" className="text-[10px] font-mono uppercase tracking-wider text-primary hover:underline">Configure</Link>}>
+          {/* Target asset */}
+          <Panel title="Target Asset" action={<Link to="/configure" className="text-[10px] font-mono uppercase tracking-wider text-primary hover:underline">Configure →</Link>}>
             <div className="p-4 flex gap-2 flex-wrap">
-              {["Sentinel-1A", "SBIRS-GEO-5", "WorldView-3", "GOES-18", "WGS-10"].map((s) => (
-                <button key={s} onClick={() => setSat(s)} className={`px-3 py-1.5 rounded-md text-xs font-mono border transition-colors ${
-                  sat === s ? "bg-primary/15 border-primary text-primary" : "panel-2 text-muted-foreground hover:text-foreground"
-                }`}>{s}</button>
+              {SATS.map((s) => (
+                <button key={s} onClick={() => setSat(s)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-mono border transition-colors ${
+                    sat === s ? "bg-primary/15 border-primary text-primary text-glow" : "panel-2 text-muted-foreground hover:text-foreground"
+                  }`}>{s}</button>
               ))}
             </div>
           </Panel>
 
-          <Panel title="Attack Vector" action={<span className="text-[10px] font-mono text-muted-foreground">5 LIVE · 10 PIPELINE</span>}>
-            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-              {LIVE_ATTACKS.map((a) => {
-                const active = selectedAttack === a.id;
+          {/* Mode toggle */}
+          <Panel title="Simulation Mode">
+            <div className="p-4 grid grid-cols-2 gap-3">
+              {[
+                { id: "single", label: "SINGLE SATELLITE", icon: Satellite, desc: "Run attack against one asset" },
+                { id: "constellation", label: "CONSTELLATION", icon: Network, desc: "Multi-asset propagation model" },
+              ].map((m) => {
+                const active = mode === m.id;
                 return (
-                  <button key={a.id} onClick={() => setSelectedAttack(a.id)} className={`text-left p-4 rounded-md border transition-all relative overflow-hidden ${
-                    active ? "border-primary bg-primary/5" : "border-border bg-surface-2 hover:border-primary/40"
-                  }`}>
-                    {active && <div className="absolute inset-0 hud-grid opacity-30 pointer-events-none" />}
-                    <div className="relative">
-                      <div className="flex items-center justify-between">
-                        <div className={`h-9 w-9 rounded-md flex items-center justify-center ${active ? "bg-primary text-primary-foreground" : "bg-background text-primary border border-border"}`}>
-                          <a.icon className="h-4 w-4" />
-                        </div>
-                        <StatusBadge level="LIVE" />
-                      </div>
-                      <div className="mt-3 text-sm font-semibold">{a.name}</div>
-                      <div className="text-[11px] text-muted-foreground mt-0.5">{a.desc}</div>
-                      <div className="mt-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{a.surface}</div>
+                  <button key={m.id} onClick={() => setMode(m.id as any)}
+                    className={`p-4 rounded-md border text-left transition-all ${
+                      active ? "border-primary bg-primary/10" : "border-border bg-surface-2 hover:border-primary/40"
+                    }`}>
+                    <div className="flex items-center gap-2">
+                      <m.icon className={`h-4 w-4 ${active ? "text-primary" : "text-muted-foreground"}`} />
+                      <span className={`text-xs font-mono tracking-[0.14em] ${active ? "text-primary" : ""}`}>{m.label}</span>
                     </div>
+                    <div className="text-[11px] text-muted-foreground mt-1.5">{m.desc}</div>
                   </button>
                 );
               })}
             </div>
-            <div className="px-4 pb-4">
-              <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground mb-2">Pipeline · Coming Soon</div>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                {SOON.map((s) => (
-                  <div key={s.name} className="panel-2 p-2.5 opacity-50 cursor-not-allowed">
-                    <div className="flex items-center gap-2">
-                      <s.icon className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-[11px] truncate">{s.name}</span>
-                    </div>
-                    <div className="mt-1.5"><StatusBadge level="SOON" /></div>
+          </Panel>
+
+          {/* Attack dropdown */}
+          <Panel title="Attack Type" action={<span className="text-[10px] font-mono text-muted-foreground">5 LIVE · 20 PIPELINE</span>}>
+            <div className="p-4 relative">
+              <button onClick={() => setOpen(!open)}
+                className="w-full panel-2 px-3 h-11 flex items-center gap-3 hover:border-primary/40">
+                <activeAttack.icon className="h-4 w-4 text-primary" />
+                <span className="text-sm">{activeAttack.name}</span>
+                <span className="text-[10px] font-mono text-muted-foreground">{activeAttack.surface}</span>
+                <StatusBadge level="LIVE" />
+                <ChevronDown className={`ml-auto h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+              </button>
+              {open && (
+                <div className="absolute left-4 right-4 mt-1 z-30 panel max-h-[420px] overflow-auto shadow-2xl">
+                  <div className="px-3 py-2 text-[10px] font-mono uppercase tracking-[0.14em] text-success border-b border-border bg-success/5">
+                    Digital Twin Engine · LIVE
                   </div>
-                ))}
-              </div>
+                  {LIVE.map((l) => (
+                    <button key={l.id} onClick={() => { setAttack(l.id); setOpen(false); }}
+                      className={`w-full px-3 py-2.5 flex items-center gap-3 hover:bg-primary/10 border-b border-border/50 text-left ${
+                        attack === l.id ? "bg-primary/10" : ""
+                      }`}>
+                      <l.icon className="h-4 w-4 text-primary" />
+                      <span className="text-sm flex-1">{l.name}</span>
+                      <span className="text-[10px] font-mono text-muted-foreground">{l.surface}</span>
+                      <StatusBadge level="LIVE" />
+                    </button>
+                  ))}
+                  {SOON_GROUPS.map((g) => (
+                    <div key={g.label}>
+                      <div className="px-3 py-2 text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground border-b border-border bg-surface-2">
+                        {g.label} · COMING SOON
+                      </div>
+                      {g.items.map((i) => (
+                        <div key={i} className="px-3 py-2 flex items-center gap-3 border-b border-border/50 opacity-50 cursor-not-allowed">
+                          <span className="h-4 w-4" />
+                          <span className="text-sm flex-1">{i}</span>
+                          <StatusBadge level="SOON" />
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </Panel>
 
+          {/* Threat actor */}
           <Panel title="Threat Actor Profile">
             <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
               {ACTORS.map((a) => {
                 const active = actor === a.id;
+                const ringColor = a.accent === "critical" ? "border-critical bg-critical/5" : a.accent === "high" ? "border-high bg-high/5" : "border-primary bg-primary/5";
                 return (
-                  <button key={a.id} onClick={() => setActor(a.id)} className={`text-left p-4 rounded-md border transition-all ${
-                    active ? "border-critical bg-critical/5" : "border-border bg-surface-2 hover:border-critical/40"
-                  }`}>
+                  <button key={a.id} onClick={() => setActor(a.id)}
+                    className={`text-left p-4 rounded-md border transition-all ${
+                      active ? ringColor : "border-border bg-surface-2 hover:border-foreground/30"
+                    }`}>
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground">{a.tag}</span>
-                      <StatusBadge level={a.level as any} />
+                      <StatusBadge level={a.level} />
                     </div>
                     <div className="mt-2 text-sm font-semibold">{a.name}</div>
-                    <div className="text-[11px] text-muted-foreground mt-1">{a.desc}</div>
-                    <div className="mt-3 flex flex-wrap gap-1">
-                      {a.traits.map((t) => (
-                        <span key={t} className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border text-muted-foreground">{t}</span>
-                      ))}
-                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">{a.desc}</div>
                   </button>
                 );
               })}
             </div>
           </Panel>
-        </div>
 
-        <div className="space-y-4">
+          {/* Attack-specific params */}
+          <Panel title="Attack-Specific Parameters" action={<span className="text-[10px] font-mono text-primary">{activeAttack.name}</span>}>
+            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {attack === "gps-spoof" && <>
+                <Field label="Position Offset (meters)" hint="100 – 50,000"><Input type="number" min={100} max={50000} value={posOffset} onChange={(e) => setPosOffset(+e.target.value)} /></Field>
+                <Field label="Signal Power (Watts)" hint="10 – 1,000"><Input type="number" min={10} max={1000} value={sigPower} onChange={(e) => setSigPower(+e.target.value)} /></Field>
+              </>}
+              {attack === "rf-jam" && <>
+                <Field label="Jammer Power (Watts)"><Input type="number" value={jamPower} onChange={(e) => setJamPower(+e.target.value)} /></Field>
+                <Field label="Frequency (MHz)"><Input type="number" value={jamFreq} onChange={(e) => setJamFreq(+e.target.value)} /></Field>
+                <Field label="Jamming Type"><Select value={jamType} onChange={setJamType} options={["Barrage", "Spot (focused)", "Sweep"]} /></Field>
+              </>}
+              {attack === "cmd-inj" && <>
+                <Field label="Command Type"><Select value={cmdType} onChange={setCmdType} options={["Attitude Change", "Power Cycle", "Mode Change", "Payload Control"]} /></Field>
+                <Field label="Bypass Method"><Select value={bypass} onChange={setBypass} options={["Weak Crypto", "Stolen Keys", "Protocol Exploit", "None (brute force)"]} /></Field>
+              </>}
+              {attack === "gs-comp" && <>
+                <Field label="Attack Path"><Select value={gsPath} onChange={setGsPath} options={["Network Intrusion", "Terminal Firmware Exploitation"]} /></Field>
+                <div />
+                {gsPath === "Network Intrusion" && <>
+                  <Field label="Attack Vector"><Select value={gsVector} onChange={setGsVector} options={["Cyber Attack", "Insider Threat", "Physical Intrusion", "Social Engineering"]} /></Field>
+                  <Field label="Compromise Level"><Select value={gsCompLvl} onChange={setGsCompLvl} options={["Operator Workstation", "Command System", "Full Control", "Network Access"]} /></Field>
+                  <Field label="Covert"><Select value={gsCovert} onChange={setGsCovert} options={["Yes", "No"]} /></Field>
+                </>}
+                {gsPath === "Terminal Firmware Exploitation" && <>
+                  <Field label="Terminal Type"><Select value={termType} onChange={setTermType} options={["Linux-based COTS Modem", "Legacy Integrated Circuit", "Custom Hardened Terminal"]} /></Field>
+                  <Field label="Firmware Update Mechanism"><Select value={fwUpdate} onChange={setFwUpdate} options={["Over-the-Air (OTA)", "Air-Gapped"]} /></Field>
+                  <Field label="Secure Boot"><Select value={secureBoot} onChange={setSecureBoot} options={["Disabled", "Enabled"]} /></Field>
+                  <Field label="Debug Port Exposure"><Select value={debugPort} onChange={setDebugPort} options={["Exposed", "Disabled"]} /></Field>
+                  <Field label="Command Code Signing"><Select value={cmdSigning} onChange={setCmdSigning} options={["Disabled", "Enabled"]} /></Field>
+                </>}
+              </>}
+              {attack === "ai-gnss" && <>
+                <Field label="Learning Iterations" hint="5 – 100"><Input type="number" min={5} max={100} value={iters} onChange={(e) => setIters(+e.target.value)} /></Field>
+                <Field label="Exploration Rate" hint="0.05 – 1.0">
+                  <div className="flex items-center gap-3">
+                    <input type="range" min={0.05} max={1} step={0.05} value={explore} onChange={(e) => setExplore(+e.target.value)} className="flex-1 accent-primary" />
+                    <span className="font-mono text-sm text-primary w-12 text-right">{explore.toFixed(2)}</span>
+                  </div>
+                </Field>
+                <Field label="Stealth Weight (0–1)">
+                  <div className="flex items-center gap-3">
+                    <input type="range" min={0} max={1} step={0.1} value={stealth} onChange={(e) => setStealth(+e.target.value)} className="flex-1 accent-primary" />
+                    <span className="font-mono text-sm text-primary w-12 text-right">{stealth.toFixed(1)}</span>
+                  </div>
+                </Field>
+              </>}
+            </div>
+          </Panel>
+
+          {/* Sim params */}
           <Panel title="Simulation Parameters">
             <div className="p-5 space-y-5">
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-[11px] font-mono uppercase tracking-[0.14em] text-muted-foreground">Duration</label>
-                  <span className="font-mono text-sm text-primary">{duration}s</span>
+                  <span className="text-[11px] font-mono uppercase tracking-[0.14em] text-muted-foreground">Attack Severity</span>
+                  <span className="font-mono text-sm text-primary">{severity}%</span>
                 </div>
-                <input type="range" min={300} max={600} step={10} value={duration} onChange={(e) => setDuration(+e.target.value)} className="w-full accent-primary" />
+                <input type="range" min={0} max={100} value={severity} onChange={(e) => setSeverity(+e.target.value)} className="w-full accent-primary" />
                 <div className="flex justify-between text-[10px] font-mono text-muted-foreground mt-1">
-                  <span>300s</span><span>450s</span><span>600s</span>
+                  <span>LOW</span><span>MODERATE</span><span>CRITICAL</span>
                 </div>
               </div>
-              <button onClick={() => setUq(!uq)} className="w-full panel-2 px-3 py-2.5 flex items-center gap-3 hover:border-primary/40">
-                <span className={`relative h-5 w-9 rounded-full ${uq ? "bg-primary" : "bg-surface-2 border border-border"}`}>
-                  <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-background transition-transform ${uq ? "translate-x-4" : "translate-x-0.5"}`} />
-                </span>
-                <div className="text-left flex-1">
-                  <div className="text-sm">Uncertainty Quantification</div>
-                  <div className="text-[10px] font-mono text-muted-foreground">Monte Carlo · 500 runs</div>
-                </div>
+              <Field label="Duration (seconds)" hint="1 – 86,400">
+                <Input type="number" min={1} max={86400} value={duration} onChange={(e) => setDuration(+e.target.value)} />
+              </Field>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Check checked={uq} onChange={setUq} label="Uncertainty Bounds (LHS samples)" />
+                <Check checked={sa} onChange={setSa} label="Sensitivity Analysis (parameter ranking)" />
+              </div>
+            </div>
+          </Panel>
+
+          {/* Run buttons */}
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
+            <button onClick={go}
+              className="w-full inline-flex items-center justify-center gap-2 px-5 py-4 rounded-md font-display font-bold tracking-[0.2em] text-primary-foreground shadow-[0_0_40px_-8px_oklch(0.78_0.16_200_/_0.6)]"
+              style={{ background: "linear-gradient(90deg, oklch(0.65 0.16 200), oklch(0.78 0.16 200))" }}>
+              <Play className="h-4 w-4" /> RUN ATTACK SIMULATION
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <button className="inline-flex items-center justify-center gap-2 px-5 py-4 rounded-md font-display font-bold tracking-[0.2em] text-critical-foreground"
+              style={{ background: "linear-gradient(90deg, oklch(0.55 0.22 22), oklch(0.7 0.24 22))" }}>
+              <Trash2 className="h-4 w-4" /> CLEAR RESULTS
+            </button>
+          </div>
+
+          {/* Mission Scenarios */}
+          <Panel title="Mission Scenarios" action={<Workflow className="h-3.5 w-3.5 text-primary" />}>
+            <div className="p-5 space-y-4">
+              <p className="text-xs text-muted-foreground">Multi-phase attacks with state forwarding — Phase 2 starts with Phase 1's damage.</p>
+              <Field label="Scenario">
+                <Select value={scenario} onChange={setScenario} options={[
+                  "Communications Disruption (RF → GS → CMD)",
+                  "Earth Obs. Espionage (AI → CMD → GS)",
+                  "GPS Constellation Attack (GPS → AI → CMD)",
+                ]} />
+              </Field>
+              <button onClick={go}
+                className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md font-display font-bold tracking-[0.2em] text-primary-foreground"
+                style={{ background: "linear-gradient(90deg, oklch(0.6 0.16 200), oklch(0.75 0.16 200))" }}>
+                <Activity className="h-4 w-4" /> EXECUTE SCENARIO
               </button>
-              <button onClick={() => setSa(!sa)} className="w-full panel-2 px-3 py-2.5 flex items-center gap-3 hover:border-primary/40">
-                <span className={`relative h-5 w-9 rounded-full ${sa ? "bg-primary" : "bg-surface-2 border border-border"}`}>
-                  <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-background transition-transform ${sa ? "translate-x-4" : "translate-x-0.5"}`} />
-                </span>
-                <div className="text-left flex-1">
-                  <div className="text-sm">Sensitivity Analysis</div>
-                  <div className="text-[10px] font-mono text-muted-foreground">Sobol indices · 12 params</div>
+            </div>
+          </Panel>
+
+          {/* Agentic AI Adversary */}
+          <Panel title="Agentic AI Adversary" action={<Bot className="h-3.5 w-3.5" style={{ color: "oklch(0.7 0.22 300)" }} />}>
+            <div className="p-5 space-y-4 relative">
+              <div className="absolute inset-0 pointer-events-none opacity-20" style={{ background: "radial-gradient(circle at top right, oklch(0.5 0.2 300 / 0.3), transparent 60%)" }} />
+              <div className="relative">
+                <div className="font-display font-semibold text-base" style={{ color: "oklch(0.78 0.18 300)" }}>Agentic AI Adversary</div>
+                <p className="text-xs text-muted-foreground mt-1">An AI adversary agent autonomously observes satellite state, reasons about defenses, and selects attacks dynamically.</p>
+              </div>
+              <Field label="Objective">
+                <Select value={objective} onChange={setObjective} options={["Maximum Damage", "Stealth Campaign", "Targeted (Payload/ADCS)"]} />
+              </Field>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-mono uppercase tracking-[0.14em] text-muted-foreground">Iterations</span>
+                  <span className="font-mono text-sm" style={{ color: "oklch(0.78 0.18 300)" }}>{advIters}</span>
                 </div>
-              </button>
+                <input type="range" min={3} max={10} value={advIters} onChange={(e) => setAdvIters(+e.target.value)} className="w-full" style={{ accentColor: "oklch(0.65 0.22 300)" }} />
+                <div className="flex justify-between text-[10px] font-mono text-muted-foreground mt-1">
+                  <span>3</span><span>10</span>
+                </div>
+              </div>
+              <Link to="/adversary">
+                <button className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md font-display font-bold tracking-[0.2em] text-white"
+                  style={{ background: "linear-gradient(90deg, oklch(0.45 0.22 300), oklch(0.65 0.24 300))", boxShadow: "0 0 40px -8px oklch(0.65 0.24 300 / 0.6)" }}>
+                  <BrainCircuit className="h-4 w-4" /> DEPLOY ADVERSARY
+                </button>
+              </Link>
+            </div>
+          </Panel>
+        </div>
+
+        {/* RIGHT: Subsystem Health preview */}
+        <div className="space-y-4">
+          <Panel title="Subsystem Health · Preview" action={<span className="text-[10px] font-mono text-success">NOMINAL</span>}>
+            <div className="p-5 space-y-4">
+              <div className="text-[11px] text-muted-foreground">Pre-attack baseline. All subsystems operating at full capacity.</div>
+              {[
+                { name: "ADCS", v: 100 }, { name: "Comms", v: 100 }, { name: "Power", v: 100 },
+                { name: "Thermal", v: 100 }, { name: "Payload", v: 100 }, { name: "Ground", v: 100 },
+              ].map((s) => (
+                <div key={s.name}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-mono">{s.name}</span>
+                    <span className="text-xs font-mono text-success">{s.v}%</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-surface-2 border border-border overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${s.v}%`, background: "linear-gradient(90deg, oklch(0.7 0.18 145), oklch(0.8 0.18 145))" }} />
+                  </div>
+                </div>
+              ))}
             </div>
           </Panel>
 
           <Panel title="Mission Brief">
             <div className="p-5 space-y-2 text-xs font-mono">
+              <div className="flex justify-between"><span className="text-muted-foreground">MODE</span><span className="text-primary">{mode === "single" ? "SINGLE SAT" : "CONSTELLATION"}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">TARGET</span><span>{sat}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">VECTOR</span><span className="text-primary">{LIVE_ATTACKS.find(a => a.id === selectedAttack)?.name}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">ACTOR</span><span className="text-high">{ACTORS.find(a => a.id === actor)?.name}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">VECTOR</span><span className="text-primary">{activeAttack.name}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">ACTOR</span><span className="text-high">{ACTORS.find((a) => a.id === actor)?.name}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">SEVERITY</span><span>{severity}%</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">DURATION</span><span>{duration}s</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">TICKS</span><span>{duration * 10}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">UQ / SA</span><span>{uq ? "ON" : "OFF"} / {sa ? "ON" : "OFF"}</span></div>
             </div>
           </Panel>
-
-          <Link to="/results" className="block">
-            <button className="w-full inline-flex items-center justify-center gap-2 px-5 py-4 rounded-md bg-critical text-critical-foreground font-display font-bold tracking-wider hover:bg-critical/90 shadow-[0_0_30px_-8px_oklch(0.65_0.24_22_/_0.6)]">
-              <Play className="h-4 w-4" /> RUN SIMULATION
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </Link>
         </div>
       </div>
     </AppShell>
