@@ -231,7 +231,7 @@ function Adversary() {
                     Agent Thinking · evaluating FDIR response
                   </div>
                   <div className="text-[10px] font-mono text-muted-foreground mt-0.5">
-                    AI engine · gpt-redteam-orbital · context window 47%
+                    AI engine · context window 47%
                   </div>
                 </div>
                 <div className="flex gap-1">

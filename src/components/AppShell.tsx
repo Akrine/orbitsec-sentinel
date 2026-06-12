@@ -13,12 +13,14 @@ import {
   Search,
   Bell,
   Radio,
+  Layers,
 } from "lucide-react";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/configure", label: "Satellite Config", icon: Satellite },
   { to: "/attack", label: "New Simulation", icon: Crosshair },
+  { to: "/scenarios", label: "Mission Scenarios", icon: Layers },
   { to: "/constellation", label: "Constellation", icon: Network },
   { to: "/adversary", label: "AI Adversary", icon: BrainCircuit },
   { to: "/reports", label: "Reports", icon: FileText },
