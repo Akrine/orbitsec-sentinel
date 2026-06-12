@@ -1,13 +1,34 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { toast } from "sonner";
 import { AppShell, Panel } from "@/components/AppShell";
-import { Satellite, Save, Trash2, Upload, ShieldCheck } from "lucide-react";
+import {
+  Satellite,
+  Save,
+  Trash2,
+  Upload,
+  ChevronDown,
+  ChevronRight,
+  Radio,
+  Compass,
+  Zap,
+  Antenna,
+  Thermometer,
+  Camera,
+  Globe,
+  ShieldAlert,
+  DollarSign,
+} from "lucide-react";
 
 export const Route = createFileRoute("/configure")({
   head: () => ({
     meta: [
       { title: "Satellite Configuration — OrbitSec" },
-      { name: "description", content: "Define satellite physical, RF, and software parameters for cybersecurity simulation." },
+      {
+        name: "description",
+        content:
+          "Define satellite physical, RF, and software parameters for cybersecurity simulation.",
+      },
     ],
   }),
   component: Configure,
@@ -21,121 +42,460 @@ const SAVED = [
   { name: "WGS-10", orbit: "GEO · 35,786km · 0.03°", enc: 5, wheels: 6, mod: "8PSK" },
 ];
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+// ---------- primitives ----------
+function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <div className="space-y-1.5">
-      <label className="block text-[11px] font-mono uppercase tracking-[0.14em] text-muted-foreground">{label}</label>
+    <input
+      {...props}
+      className={`w-full bg-input border border-border rounded-md px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-primary/60 ${
+        props.className ?? ""
+      }`}
+    />
+  );
+}
+
+function Select({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full bg-input border border-border rounded-md px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-primary/60"
+    >
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1">
+      <label className="block text-[10px] font-mono uppercase tracking-[0.12em] text-muted-foreground">
+        {label}
+      </label>
       {children}
-      {hint && <div className="text-[10px] font-mono text-muted-foreground">{hint}</div>}
     </div>
   );
 }
 
-function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
+function CheckRow({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+}) {
   return (
-    <input {...props} className={`w-full bg-input border border-border rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary/60 ${props.className ?? ""}`} />
-  );
-}
-
-function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
-  return (
-    <button onClick={() => onChange(!checked)} className="flex items-center gap-3 w-full panel-2 px-3 py-2.5 hover:border-primary/40">
-      <span className={`relative h-5 w-9 rounded-full transition-colors ${checked ? "bg-primary" : "bg-surface-2 border border-border"}`}>
-        <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-background transition-transform ${checked ? "translate-x-4" : "translate-x-0.5"}`} />
+    <label className="flex items-center gap-2.5 panel-2 px-2.5 py-2 cursor-pointer hover:border-primary/40">
+      <span
+        onClick={() => onChange(!checked)}
+        className={`h-4 w-4 rounded-sm border flex items-center justify-center transition-colors ${
+          checked ? "bg-primary border-primary" : "border-border bg-surface-2"
+        }`}
+      >
+        {checked && (
+          <svg viewBox="0 0 12 12" className="h-3 w-3 text-primary-foreground">
+            <path d="M2 6l3 3 5-6" fill="none" stroke="currentColor" strokeWidth="2" />
+          </svg>
+        )}
       </span>
-      <span className="text-sm">{label}</span>
-      <span className="ml-auto text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{checked ? "ENABLED" : "DISABLED"}</span>
-    </button>
+      <span className="text-xs">{label}</span>
+    </label>
   );
 }
 
+const ACCENT: Record<string, { bar: string; text: string; chip: string }> = {
+  grey: { bar: "bg-muted-foreground/60", text: "text-muted-foreground", chip: "bg-muted-foreground/10 border-muted-foreground/30" },
+  cyan: { bar: "bg-primary", text: "text-primary", chip: "bg-primary/10 border-primary/30" },
+  yellow: { bar: "bg-warning", text: "text-warning", chip: "bg-warning/10 border-warning/30" },
+  green: { bar: "bg-success", text: "text-success", chip: "bg-success/10 border-success/30" },
+  orange: { bar: "bg-orange-500", text: "text-orange-400", chip: "bg-orange-500/10 border-orange-500/30" },
+  purple: { bar: "bg-purple-500", text: "text-purple-400", chip: "bg-purple-500/10 border-purple-500/30" },
+  red: { bar: "bg-critical", text: "text-critical", chip: "bg-critical/10 border-critical/30" },
+  darkpurple: { bar: "bg-purple-700", text: "text-purple-300", chip: "bg-purple-700/10 border-purple-700/40" },
+  darkgreen: { bar: "bg-emerald-700", text: "text-emerald-300", chip: "bg-emerald-700/10 border-emerald-700/40" },
+};
+
+function Section({
+  title,
+  accent,
+  icon: Icon,
+  defaultOpen = true,
+  children,
+}: {
+  title: string;
+  accent: keyof typeof ACCENT;
+  icon?: React.ComponentType<{ className?: string }>;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const a = ACCENT[accent];
+  return (
+    <div className="panel rounded-lg overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className={`w-full flex items-center gap-2.5 px-4 py-2.5 border-b border-border ${a.chip} hover:brightness-110`}
+      >
+        <span className={`h-4 w-1 rounded-sm ${a.bar}`} />
+        {Icon && <Icon className={`h-3.5 w-3.5 ${a.text}`} />}
+        <span className={`text-xs font-mono uppercase tracking-[0.18em] font-semibold ${a.text}`}>
+          {title}
+        </span>
+        <span className="ml-auto">
+          {open ? (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          )}
+        </span>
+      </button>
+      {open && <div className="p-4 grid grid-cols-2 md:grid-cols-3 gap-3">{children}</div>}
+    </div>
+  );
+}
+
+// ---------- main ----------
 function Configure() {
-  const [encryption, setEncryption] = useState(3);
-  const [netSeg, setNetSeg] = useState(true);
-  const [firmware, setFirmware] = useState(true);
-  const [mod, setMod] = useState("QPSK");
+  const [mission, setMission] = useState("Earth Observation");
+
+  // ADCS
+  const [hasThrusters, setHasThrusters] = useState(false);
+  const [anomalyDet, setAnomalyDet] = useState(false);
+  const [backupMode, setBackupMode] = useState("None");
+  const [autonomy, setAutonomy] = useState("Low");
+
+  // EPS
+  const [redundantPower, setRedundantPower] = useState(true);
+
+  // Comms
+  const [hasKa, setHasKa] = useState(false);
+  const [commsEnc, setCommsEnc] = useState("AES-256");
+  const [multiGNSS, setMultiGNSS] = useState(false);
+  const [spread, setSpread] = useState("None");
+  const [modulation, setModulation] = useState("BPSK");
+  const [cmdAuth, setCmdAuth] = useState("None");
+  const [fallback, setFallback] = useState({ ka: false, x: true, s: true, uhf: false });
+
+  // Thermal
+  const [coating, setCoating] = useState("White Paint");
+
+  // Ground
+  const [crosslinks, setCrosslinks] = useState(false);
+  const [gsEnc, setGsEnc] = useState("AES-256");
+  const [netSeg, setNetSeg] = useState("Basic");
+  const [firmware, setFirmware] = useState("Software Signature");
+  const [region, setRegion] = useState("Global Distribution");
+
+  const handleSave = () => {
+    toast.success("Configuration saved", {
+      description: "Asset profile committed to secure vault · OSEC-4821",
+    });
+  };
 
   return (
     <AppShell title="Satellite Configuration" subtitle="ASSET PROFILE BUILDER · v3">
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div className="xl:col-span-2 space-y-4">
-          <Panel title="Physical Parameters" action={<span className="text-[10px] font-mono text-muted-foreground">ASSET ID · OSEC-{Math.floor(Math.random()*9000+1000)}</span>}>
-            <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field label="Satellite Name"><Input defaultValue="Sentinel-1A" /></Field>
-              <Field label="Altitude (km)" hint="LEO 160-2000 · MEO 2000-35,786 · GEO 35,786"><Input type="number" defaultValue={693} /></Field>
-              <Field label="Inclination (degrees)"><Input type="number" defaultValue={98.18} step={0.01} /></Field>
-              <Field label="Reaction Wheels (count)" hint="Triple-redundant recommended"><Input type="number" defaultValue={4} /></Field>
-              <Field label="Battery Capacity (Wh)"><Input type="number" defaultValue={324} /></Field>
-              <Field label="Ground Station Count"><Input type="number" defaultValue={3} /></Field>
-            </div>
-          </Panel>
-
-          <Panel title="RF & Comms">
-            <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field label="Modulation Scheme">
-                <div className="grid grid-cols-3 gap-2">
-                  {["BPSK", "QPSK", "8PSK"].map((m) => (
-                    <button key={m} onClick={() => setMod(m)} className={`px-3 py-2 text-xs font-mono rounded-md border transition-colors ${
-                      mod === m ? "bg-primary/15 border-primary text-primary" : "panel-2 text-muted-foreground hover:text-foreground"
-                    }`}>{m}</button>
-                  ))}
+      <div className="grid grid-cols-1 xl:grid-cols-[340px_1fr] gap-4">
+        {/* LEFT: Saved + TLE */}
+        <div className="space-y-4">
+          <Panel
+            title="Saved Configurations"
+            action={
+              <span className="text-[10px] font-mono text-muted-foreground">
+                {SAVED.length} ASSETS
+              </span>
+            }
+          >
+            <div className="divide-y divide-border">
+              {SAVED.map((s) => (
+                <div key={s.name} className="p-3.5 hover:bg-surface-2/50">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-8 w-8 rounded-md bg-primary/10 border border-primary/30 flex items-center justify-center text-primary">
+                      <Satellite className="h-3.5 w-3.5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold font-mono truncate">{s.name}</div>
+                      <div className="text-[10px] font-mono text-muted-foreground truncate">
+                        {s.orbit}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-2.5 grid grid-cols-3 gap-1.5 text-[10px] font-mono">
+                    <div className="panel-2 px-2 py-1">
+                      <div className="text-muted-foreground">ENC</div>
+                      <div>L{s.enc}</div>
+                    </div>
+                    <div className="panel-2 px-2 py-1">
+                      <div className="text-muted-foreground">RW</div>
+                      <div>{s.wheels}</div>
+                    </div>
+                    <div className="panel-2 px-2 py-1">
+                      <div className="text-muted-foreground">MOD</div>
+                      <div>{s.mod}</div>
+                    </div>
+                  </div>
+                  <div className="mt-2.5 flex gap-2">
+                    <button className="flex-1 text-xs py-1.5 rounded-md bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25">
+                      Load
+                    </button>
+                    <button className="px-3 py-1.5 rounded-md panel-2 text-muted-foreground hover:text-critical hover:border-critical/40">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
-              </Field>
-              <Field label={`Encryption Level: ${encryption} / 5`} hint={["NONE", "BASIC", "AES-128", "AES-256", "QUANTUM-SAFE", "QKD"][encryption]}>
-                <input type="range" min={1} max={5} value={encryption} onChange={(e) => setEncryption(+e.target.value)} className="w-full accent-primary" />
-                <div className="flex justify-between text-[10px] font-mono text-muted-foreground">
-                  <span>1 · WEAK</span><span>3 · STD</span><span>5 · QUANTUM</span>
-                </div>
-              </Field>
+              ))}
             </div>
           </Panel>
 
-          <Panel title="Security Posture">
-            <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Toggle checked={netSeg} onChange={setNetSeg} label="Network Segmentation" />
-              <Toggle checked={firmware} onChange={setFirmware} label="Firmware Verification" />
+          <Panel
+            title="Custom TLE"
+            action={
+              <span className="text-[10px] font-mono text-muted-foreground">
+                TWO-LINE ELEMENT SET
+              </span>
+            }
+          >
+            <div className="p-4 space-y-3">
+              <Field label="Name (optional)">
+                <Input placeholder="CUSTOM-SAT-01" />
+              </Field>
+              <Field label="TLE Line 1">
+                <textarea
+                  rows={2}
+                  placeholder="1 25544U 98067A   24001.50000000  .00016717  00000-0  10270-3 0  9994"
+                  className="w-full bg-input border border-border rounded-md px-2.5 py-1.5 text-[10px] font-mono focus:outline-none focus:border-primary/60 resize-none"
+                />
+              </Field>
+              <Field label="TLE Line 2">
+                <textarea
+                  rows={2}
+                  placeholder="2 25544  51.6400 337.6640 0007417  35.4720  68.5060 15.49309239433400"
+                  className="w-full bg-input border border-border rounded-md px-2.5 py-1.5 text-[10px] font-mono focus:outline-none focus:border-primary/60 resize-none"
+                />
+              </Field>
+              <div className="flex gap-2 pt-1">
+                <button className="flex-1 text-xs py-2 rounded-md bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25 font-semibold">
+                  Load Satellite
+                </button>
+                <button className="px-4 text-xs py-2 rounded-md panel-2 hover:border-border text-muted-foreground">
+                  Cancel
+                </button>
+              </div>
             </div>
           </Panel>
+        </div>
 
-          <div className="flex items-center gap-2">
-            <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90">
-              <Save className="h-4 w-4" /> Save Configuration
+        {/* RIGHT: Form */}
+        <div className="space-y-3">
+          <div className="panel rounded-lg p-4 flex items-center gap-4">
+            <Radio className="h-4 w-4 text-primary" />
+            <div className="flex-1">
+              <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground">
+                Mission Type
+              </div>
+            </div>
+            <div className="w-72">
+              <Select
+                value={mission}
+                onChange={setMission}
+                options={["Earth Observation", "Communications", "Navigation", "Scientific"]}
+              />
+            </div>
+          </div>
+
+          <Section title="Orbital Parameters" accent="grey" icon={Compass}>
+            <Field label="Altitude (km)">
+              <Input type="number" defaultValue={400} min={200} max={40000} />
+            </Field>
+            <Field label="Inclination (deg)">
+              <Input type="number" defaultValue={51.6} step={0.1} />
+            </Field>
+          </Section>
+
+          <Section title="ADCS" accent="cyan" icon={Compass}>
+            <Field label="Pointing Accuracy (deg)"><Input type="number" defaultValue={0.1} step={0.01} /></Field>
+            <Field label="Reaction Wheels"><Input type="number" defaultValue={4} /></Field>
+            <Field label="Star Trackers"><Input type="number" defaultValue={2} /></Field>
+            <Field label="ST Accuracy (arcsec)"><Input type="number" defaultValue={10} /></Field>
+            <Field label="Gyroscopes"><Input type="number" defaultValue={4} /></Field>
+            <Field label="Gyro Drift (deg/hr)"><Input type="number" defaultValue={1.0} step={0.1} /></Field>
+            <Field label="Slew Rate (deg/s)"><Input type="number" defaultValue={1.0} step={0.1} /></Field>
+            <Field label="Wheel Momentum (Nms)"><Input type="number" defaultValue={50} /></Field>
+            <Field label="Sun Sensors"><Input type="number" defaultValue={6} /></Field>
+            <Field label="Magnetometers"><Input type="number" defaultValue={3} /></Field>
+            <Field label="Magnetorquers"><Input type="number" defaultValue={3} /></Field>
+            <div className="col-span-2 md:col-span-3 grid grid-cols-2 gap-3">
+              <CheckRow checked={hasThrusters} onChange={setHasThrusters} label="Has Thrusters" />
+              <CheckRow checked={anomalyDet} onChange={setAnomalyDet} label="Anomaly Detection" />
+            </div>
+            <Field label="Backup ADCS Mode">
+              <Select value={backupMode} onChange={setBackupMode} options={["None", "Thruster-Based", "Magnetorquer-Based"]} />
+            </Field>
+            {backupMode !== "None" && (
+              <Field label="Backup Pointing (deg)"><Input type="number" defaultValue={1.0} step={0.1} /></Field>
+            )}
+            {backupMode === "Thruster-Based" && (
+              <Field label="Switchover Time (s)"><Input type="number" defaultValue={60} /></Field>
+            )}
+            <Field label="Onboard Autonomy">
+              <Select value={autonomy} onChange={setAutonomy} options={["Low", "Medium", "High"]} />
+            </Field>
+            {autonomy !== "Low" && (
+              <Field label="Detection Threshold (s)"><Input type="number" defaultValue={30} /></Field>
+            )}
+            <Field label="Propellant Remaining (kg)"><Input type="number" defaultValue={100} /></Field>
+            <Field label="Specific Impulse (s)"><Input type="number" defaultValue={220} /></Field>
+          </Section>
+
+          <Section title="EPS" accent="yellow" icon={Zap}>
+            <Field label="Solar Panel Area (m²)"><Input type="number" defaultValue={4.0} step={0.1} /></Field>
+            <Field label="Cell Efficiency"><Input type="number" defaultValue={0.30} step={0.01} /></Field>
+            <Field label="Solar Arrays"><Input type="number" defaultValue={2} /></Field>
+            <Field label="Battery (Wh)"><Input type="number" defaultValue={1000} /></Field>
+            <Field label="Battery Cells"><Input type="number" defaultValue={48} /></Field>
+            <Field label="Battery Voltage (V)"><Input type="number" defaultValue={28} /></Field>
+            <Field label="Power Buses"><Input type="number" defaultValue={2} /></Field>
+            <Field label="Nominal Draw (W)"><Input type="number" defaultValue={200} /></Field>
+            <Field label="Peak Draw (W)"><Input type="number" defaultValue={400} /></Field>
+            <div className="col-span-2 md:col-span-3">
+              <CheckRow checked={redundantPower} onChange={setRedundantPower} label="Redundant Power" />
+            </div>
+          </Section>
+
+          <Section title="Comms" accent="green" icon={Antenna}>
+            <Field label="S-Band Antennas"><Input type="number" defaultValue={2} /></Field>
+            <Field label="S-Band Gain (dBi)"><Input type="number" defaultValue={12.0} step={0.1} /></Field>
+            <Field label="S-Band Freq (MHz)"><Input type="number" defaultValue={2200} /></Field>
+            <Field label="S-Band Tx Power (W)"><Input type="number" defaultValue={5.0} step={0.1} /></Field>
+            <Field label="S-Band Data (Mbps)"><Input type="number" defaultValue={10} /></Field>
+            <Field label="X-Band Antennas"><Input type="number" defaultValue={1} /></Field>
+            <Field label="X-Band Gain (dBi)"><Input type="number" defaultValue={25} /></Field>
+            <Field label="X-Band Freq (MHz)"><Input type="number" defaultValue={8400} /></Field>
+            <Field label="X-Band Tx Power (W)"><Input type="number" defaultValue={10} /></Field>
+            <Field label="X-Band Data (Mbps)"><Input type="number" defaultValue={100} /></Field>
+            <Field label="Rx Sensitivity (dBm)"><Input type="number" defaultValue={-110} /></Field>
+            <div className="col-span-2 md:col-span-3 grid grid-cols-2 gap-3">
+              <CheckRow checked={hasKa} onChange={setHasKa} label="Has Ka-Band" />
+              <CheckRow checked={multiGNSS} onChange={setMultiGNSS} label="Multi-GNSS" />
+            </div>
+            <Field label="Encryption">
+              <Select value={commsEnc} onChange={setCommsEnc} options={["AES-256", "AES-128", "None"]} />
+            </Field>
+            <Field label="Spread Spectrum">
+              <Select value={spread} onChange={setSpread} options={["None", "FHSS", "DSSS"]} />
+            </Field>
+            <Field label="GPS Anti-Jam Margin (dB)"><Input type="number" defaultValue={0} max={30} /></Field>
+            <Field label="Modulation Scheme">
+              <Select value={modulation} onChange={setModulation} options={["BPSK", "QPSK", "8PSK"]} />
+            </Field>
+            <Field label="Command Authentication">
+              <Select value={cmdAuth} onChange={setCmdAuth} options={["None", "Seq Counter", "HMAC-SHA256", "Digital Sig"]} />
+            </Field>
+            <div className="col-span-2 md:col-span-3 panel-2 p-3 rounded-md">
+              <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground mb-2">
+                Frequency Fallback Chain · Ordered Ka→X→S→UHF (checked = included)
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <CheckRow checked={fallback.ka} onChange={(v) => setFallback({ ...fallback, ka: v })} label="Ka-Band" />
+                <CheckRow checked={fallback.x} onChange={(v) => setFallback({ ...fallback, x: v })} label="X-Band" />
+                <CheckRow checked={fallback.s} onChange={(v) => setFallback({ ...fallback, s: v })} label="S-Band" />
+                <CheckRow checked={fallback.uhf} onChange={(v) => setFallback({ ...fallback, uhf: v })} label="UHF" />
+              </div>
+            </div>
+          </Section>
+
+          <Section title="Thermal" accent="orange" icon={Thermometer}>
+            <Field label="Radiator Area (m²)"><Input type="number" defaultValue={2.0} step={0.1} /></Field>
+            <Field label="Emissivity"><Input type="number" defaultValue={0.85} step={0.01} /></Field>
+            <Field label="Heaters"><Input type="number" defaultValue={6} /></Field>
+            <Field label="Heater Power (W)"><Input type="number" defaultValue={10} /></Field>
+            <Field label="MLI Layers"><Input type="number" defaultValue={15} /></Field>
+            <Field label="Min Op Temp (°C)"><Input type="number" defaultValue={-20} /></Field>
+            <Field label="Max Op Temp (°C)"><Input type="number" defaultValue={50} /></Field>
+            <Field label="Batt Min Temp (°C)"><Input type="number" defaultValue={0} /></Field>
+            <Field label="Batt Max Temp (°C)"><Input type="number" defaultValue={40} /></Field>
+            <Field label="Heat Pipes"><Input type="number" defaultValue={4} /></Field>
+            <Field label="Coating">
+              <Select value={coating} onChange={setCoating} options={["White Paint", "OSR", "Gold Foil"]} />
+            </Field>
+          </Section>
+
+          <Section title="Payload" accent="purple" icon={Camera}>
+            <Field label="Optical Aperture (m)"><Input type="number" defaultValue={0.5} step={0.1} /></Field>
+            <Field label="Focal Length (m)"><Input type="number" defaultValue={5.0} step={0.1} /></Field>
+            <Field label="GSD (m)"><Input type="number" defaultValue={1.0} step={0.1} /></Field>
+            <Field label="Data Rate (Gbps)"><Input type="number" defaultValue={2.0} step={0.1} /></Field>
+            <Field label="Storage (GB)"><Input type="number" defaultValue={500} /></Field>
+            <Field label="Power Draw (W)"><Input type="number" defaultValue={100} /></Field>
+            <Field label="Pointing Req (deg)"><Input type="number" defaultValue={0.01} step={0.01} /></Field>
+          </Section>
+
+          <Section title="Ground Segment" accent="red" icon={Globe}>
+            <Field label="Ground Stations"><Input type="number" defaultValue={3} /></Field>
+            <Field label="Uplink Freq (MHz)"><Input type="number" defaultValue={2025} /></Field>
+            <Field label="Downlink Freq (MHz)"><Input type="number" defaultValue={2200} /></Field>
+            <Field label="Antenna Gain (dBi)"><Input type="number" defaultValue={20} /></Field>
+            <Field label="Ground Tx Power (W)"><Input type="number" defaultValue={100} /></Field>
+            <Field label="Contact Window (min)"><Input type="number" defaultValue={10} /></Field>
+            <Field label="Passes/Day"><Input type="number" defaultValue={6} /></Field>
+            <div className="col-span-2 md:col-span-3">
+              <CheckRow checked={crosslinks} onChange={setCrosslinks} label="Has Crosslinks" />
+            </div>
+            <Field label="Encryption">
+              <Select value={gsEnc} onChange={setGsEnc} options={["AES-256", "AES-128", "None"]} />
+            </Field>
+            <Field label="Net Segmentation">
+              <Select value={netSeg} onChange={setNetSeg} options={["Basic", "None", "Zero-Trust"]} />
+            </Field>
+            <Field label="Firmware Verification">
+              <Select value={firmware} onChange={setFirmware} options={["Software Signature", "Hardware Root of Trust", "No Verification"]} />
+            </Field>
+            <Field label="GS Region">
+              <Select value={region} onChange={setRegion} options={["Global Distribution", "North America", "Europe", "Middle East", "Asia Pacific"]} />
+            </Field>
+          </Section>
+
+          <Section title="Radiation Hardening" accent="darkpurple" icon={ShieldAlert}>
+            <Field label="Total Ionizing Dose (krad)"><Input type="number" defaultValue={20} /></Field>
+          </Section>
+
+          <Section title="Financial Parameters" accent="darkgreen" icon={DollarSign}>
+            <Field label="Downtime Rate ($/hr)"><Input type="number" defaultValue={15000} /></Field>
+            <Field label="Asset Value ($M)"><Input type="number" defaultValue={300} /></Field>
+            <Field label="Recovery Ops Rate ($/hr)"><Input type="number" defaultValue={5000} /></Field>
+          </Section>
+
+          <div className="flex items-center gap-2 pt-2">
+            <button
+              onClick={handleSave}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md bg-success/10 border border-success/50 text-success text-sm font-semibold hover:bg-success/20"
+            >
+              <Save className="h-4 w-4" /> Save Config
             </button>
             <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md panel-2 text-sm hover:border-primary/40">
               <Upload className="h-4 w-4" /> Import TLE / JSON
             </button>
-            <div className="ml-auto flex items-center gap-2 text-[11px] font-mono text-muted-foreground">
-              <ShieldCheck className="h-3.5 w-3.5 text-success" /> CONFIG VALIDATED · 12 PARAMETERS
-            </div>
           </div>
         </div>
-
-        <Panel title="Saved Configurations" action={<span className="text-[10px] font-mono text-muted-foreground">{SAVED.length} ASSETS</span>}>
-          <div className="divide-y divide-border">
-            {SAVED.map((s) => (
-              <div key={s.name} className="p-4 hover:bg-surface-2/50">
-                <div className="flex items-center gap-2.5">
-                  <div className="h-8 w-8 rounded-md bg-primary/10 border border-primary/30 flex items-center justify-center text-primary">
-                    <Satellite className="h-3.5 w-3.5" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold font-mono truncate">{s.name}</div>
-                    <div className="text-[10px] font-mono text-muted-foreground truncate">{s.orbit}</div>
-                  </div>
-                </div>
-                <div className="mt-3 grid grid-cols-3 gap-2 text-[10px] font-mono">
-                  <div className="panel-2 px-2 py-1.5"><div className="text-muted-foreground">ENC</div><div className="text-foreground">L{s.enc}</div></div>
-                  <div className="panel-2 px-2 py-1.5"><div className="text-muted-foreground">RW</div><div className="text-foreground">{s.wheels}</div></div>
-                  <div className="panel-2 px-2 py-1.5"><div className="text-muted-foreground">MOD</div><div className="text-foreground">{s.mod}</div></div>
-                </div>
-                <div className="mt-3 flex gap-2">
-                  <button className="flex-1 text-xs py-1.5 rounded-md bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25">Load</button>
-                  <button className="px-3 py-1.5 rounded-md panel-2 text-muted-foreground hover:text-critical hover:border-critical/40"><Trash2 className="h-3.5 w-3.5" /></button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Panel>
       </div>
     </AppShell>
   );
