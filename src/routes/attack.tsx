@@ -112,8 +112,6 @@ function Attack() {
   const [uq, setUq] = useState(true);
   const [sa, setSa] = useState(true);
 
-  // scenarios + adversary
-
   const activeAttack = useMemo(() => LIVE.find((l) => l.id === attack)!, [attack]);
 
   function go() {
