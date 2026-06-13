@@ -126,7 +126,7 @@ function Adversary() {
                     sat === s ? "border-primary/60 bg-primary/10 text-foreground" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <SatIcon className="h-3.5 w-3.5 text-primary" />
+                  <span className="w-8 text-[10px] font-mono font-bold text-primary">SAT</span>
                   <span className="text-xs font-mono flex-1">{s}</span>
                   {sat === s && <span className="h-1.5 w-1.5 rounded-full bg-primary pulse-dot" />}
                 </button>
@@ -137,7 +137,6 @@ function Adversary() {
           <Panel title="Objective Mode">
             <div className="p-3 space-y-2">
               {OBJECTIVES.map((o) => {
-                const Icon = o.icon;
                 const sel = obj === o.id;
                 const accentBorder = o.color === "critical" ? "border-critical/60 bg-critical/5" : o.color === "primary" ? "border-primary/60 bg-primary/5" : "border-high/60 bg-high/5";
                 const iconColor = o.color === "critical" ? "text-critical" : o.color === "primary" ? "text-primary" : "text-high";
@@ -148,7 +147,7 @@ function Adversary() {
                     className={`w-full text-left panel-2 p-3 transition-colors ${sel ? accentBorder : "hover:border-border"}`}
                   >
                     <div className="flex items-center gap-2">
-                      <Icon className={`h-4 w-4 ${iconColor}`} />
+                      <span className={`w-8 text-[10px] font-mono font-bold ${iconColor}`}>{o.code}</span>
                       <span className="text-xs font-mono font-semibold uppercase tracking-wider">{o.name}</span>
                     </div>
                     <p className="mt-1.5 text-[11px] font-mono text-muted-foreground leading-relaxed">{o.desc}</p>
@@ -180,7 +179,7 @@ function Adversary() {
           <button className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md text-white font-display font-bold tracking-wider hover:brightness-110 shadow-[0_0_40px_-8px_oklch(0.55_0.22_300_/_0.8)]"
             style={{ background: "linear-gradient(135deg, #6a1b9a 0%, #4a148c 100%)" }}
           >
-            <BrainCircuit className="h-4 w-4" /> DEPLOY ADVERSARY
+            DEPLOY ADVERSARY
           </button>
         </div>
 
@@ -199,7 +198,6 @@ function Adversary() {
           >
             <div className="p-3 space-y-2.5 max-h-[860px] overflow-auto">
               {ITERS.map((it) => {
-                const Icon = it.icon;
                 return (
                   <div key={it.n} className={`panel-2 border-l-4 ${it.border} p-3`}>
                     <div className="flex items-center gap-2 flex-wrap">
@@ -207,7 +205,7 @@ function Adversary() {
                         ITERATION {String(it.n).padStart(2, "0")}
                       </span>
                       <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                        <Icon className="h-3 w-3" />
+                        <span className="font-bold text-primary">{it.code}</span>
                         {it.tag}
                       </span>
                       <span className="text-[10px] font-mono text-muted-foreground">{it.t}</span>
@@ -246,10 +244,10 @@ function Adversary() {
             <button className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md text-white font-display font-bold tracking-wider hover:brightness-110 shadow-[0_0_40px_-10px_oklch(0.55_0.22_300_/_0.7)]"
               style={{ background: "linear-gradient(135deg, #6a1b9a 0%, #4a148c 100%)" }}
             >
-              <FileDown className="h-4 w-4" /> DOWNLOAD ADVERSARY REPORT PDF
+              DOWNLOAD ADVERSARY REPORT PDF
             </button>
             <button className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md panel hover:border-primary/40 font-display font-semibold tracking-wider">
-              <Download className="h-4 w-4" /> EXPORT JSON / SPARTA
+              EXPORT JSON / SPARTA
             </button>
           </div>
         </div>
@@ -313,7 +311,6 @@ function Adversary() {
             <div className="p-3">
               <div className="panel-2 border-critical/40 bg-critical/5 px-3 py-2.5">
                 <div className="flex items-center gap-2">
-                  <Activity className="h-3.5 w-3.5 text-critical" />
                   <span className="text-xs font-mono font-bold text-critical">Satellite Compromised (&gt;75%)</span>
                 </div>
                 <div className="mt-1 text-[10px] font-mono text-muted-foreground">
@@ -354,7 +351,7 @@ function Adversary() {
           <button className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-md text-white font-display font-bold tracking-wider hover:brightness-110 shadow-[0_0_30px_-8px_oklch(0.55_0.22_300_/_0.7)]"
             style={{ background: "linear-gradient(135deg, #6a1b9a 0%, #4a148c 100%)" }}
           >
-            <Play className="h-4 w-4" /> RE-DEPLOY ADVERSARY
+            RE-DEPLOY ADVERSARY
           </button>
         </div>
       </div>
