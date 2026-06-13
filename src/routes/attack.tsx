@@ -1,10 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
-import {
-  Radio, Zap, Terminal, Server, BrainCircuit, Play, ChevronDown, ChevronRight,
-  Trash2,
-} from "lucide-react";
 
 export const Route = createFileRoute("/attack")({
   head: () => ({
@@ -19,12 +15,12 @@ export const Route = createFileRoute("/attack")({
 type AttackId =
   | "gps-spoof" | "rf-jam" | "cmd-inj" | "gs-comp" | "ai-gnss";
 
-const LIVE: { id: AttackId; name: string; surface: string; icon: any }[] = [
-  { id: "gps-spoof", name: "GPS Spoofing", surface: "RF · L1/L2", icon: Radio },
-  { id: "rf-jam", name: "RF Jamming", surface: "RF · X-band", icon: Zap },
-  { id: "cmd-inj", name: "Command Injection", surface: "C&DH", icon: Terminal },
-  { id: "gs-comp", name: "Ground Station Compromise", surface: "GROUND", icon: Server },
-  { id: "ai-gnss", name: "AI-Adaptive GNSS Spoofing", surface: "RF · ML", icon: BrainCircuit },
+const LIVE: { id: AttackId; name: string; surface: string; code: string }[] = [
+  { id: "gps-spoof", name: "GPS Spoofing", surface: "RF · L1/L2", code: "GPS" },
+  { id: "rf-jam", name: "RF Jamming", surface: "RF · X-band", code: "RF" },
+  { id: "cmd-inj", name: "Command Injection", surface: "C&DH", code: "CMD" },
+  { id: "gs-comp", name: "Ground Station Compromise", surface: "GROUND", code: "GS" },
+  { id: "ai-gnss", name: "AI-Adaptive GNSS Spoofing", surface: "RF · ML", code: "AI" },
 ];
 
 const SOON_GROUPS: { label: string; items: string[] }[] = [
@@ -141,11 +137,11 @@ function Attack() {
             <div className="p-4 relative">
               <button onClick={() => setOpen(!open)}
                 className="w-full panel-2 px-3 h-11 flex items-center gap-3 hover:border-primary/40">
-                <activeAttack.icon className="h-4 w-4 text-primary" />
+                <span className="w-8 text-[10px] font-mono font-bold text-primary">{activeAttack.code}</span>
                 <span className="text-sm">{activeAttack.name}</span>
                 <span className="text-[10px] font-mono text-muted-foreground">{activeAttack.surface}</span>
                 <StatusBadge level="LIVE" />
-                <ChevronDown className={`ml-auto h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+                <span className="ml-auto text-[10px] font-mono text-muted-foreground">{open ? "CLOSE" : "OPEN"}</span>
               </button>
               {open && (
                 <div className="absolute left-4 right-4 mt-1 z-30 panel max-h-[420px] overflow-auto shadow-2xl">
@@ -157,7 +153,7 @@ function Attack() {
                       className={`w-full px-3 py-2.5 flex items-center gap-3 hover:bg-primary/10 border-b border-border/50 text-left ${
                         attack === l.id ? "bg-primary/10" : ""
                       }`}>
-                      <l.icon className="h-4 w-4 text-primary" />
+                      <span className="w-8 text-[10px] font-mono font-bold text-primary">{l.code}</span>
                       <span className="text-sm flex-1">{l.name}</span>
                       <span className="text-[10px] font-mono text-muted-foreground">{l.surface}</span>
                       <StatusBadge level="LIVE" />
@@ -283,12 +279,11 @@ function Attack() {
             <button onClick={go}
               className="w-full inline-flex items-center justify-center gap-2 px-5 py-4 rounded-md font-display font-bold tracking-[0.2em] text-primary-foreground shadow-[0_0_40px_-8px_oklch(0.78_0.16_200_/_0.6)]"
               style={{ background: "linear-gradient(90deg, oklch(0.65 0.16 200), oklch(0.78 0.16 200))" }}>
-              <Play className="h-4 w-4" /> RUN ATTACK SIMULATION
-              <ChevronRight className="h-4 w-4" />
+              RUN ATTACK SIMULATION
             </button>
             <button className="inline-flex items-center justify-center gap-2 px-5 py-4 rounded-md font-display font-bold tracking-[0.2em] text-critical-foreground"
               style={{ background: "linear-gradient(90deg, oklch(0.55 0.22 22), oklch(0.7 0.24 22))" }}>
-              <Trash2 className="h-4 w-4" /> CLEAR RESULTS
+              CLEAR RESULTS
             </button>
           </div>
 
