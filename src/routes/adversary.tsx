@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { AppShell, Panel } from "@/components/AppShell";
-import { BrainCircuit, Target, EyeOff, Crosshair, Play, Download, FileDown, Satellite as SatIcon, Radio, Zap, Server, Terminal, Activity } from "lucide-react";
 
 export const Route = createFileRoute("/adversary")({
   head: () => ({
@@ -20,21 +19,21 @@ const OBJECTIVES = [
     id: "max",
     name: "Maximum Damage",
     desc: "Inflict the highest possible mission degradation across all subsystems",
-    icon: Target,
+    code: "MAX",
     color: "critical" as const,
   },
   {
     id: "stealth",
     name: "Stealth Campaign",
     desc: "Persist undetected. Minimize anomaly signatures while exfiltrating telemetry",
-    icon: EyeOff,
+    code: "STL",
     color: "primary" as const,
   },
   {
     id: "payload",
     name: "Targeted Payload Disruption",
     desc: "Surgical strike on imaging payload while keeping bus nominal",
-    icon: Crosshair,
+    code: "PLD",
     color: "high" as const,
   },
 ];
@@ -55,39 +54,39 @@ type Iter = {
   total: number;
   border: string;
   tag: string;
-  icon: typeof Radio;
+  code: string;
   reasoning: string;
 };
 
 const ITERS: Iter[] = [
   {
     n: 1, t: "T+38s", delta: 8, total: 8,
-    border: "border-l-primary", tag: "GPS SPOOFING", icon: Radio,
+    border: "border-l-primary", tag: "GPS SPOOFING", code: "GPS",
     reasoning: "Assessed satellite defense posture. X-band downlink identified as weakest link due to L3 encryption fallback. Initiating reconnaissance sweep across primary uplink window.",
   },
   {
     n: 2, t: "T+76s", delta: 14, total: 22,
-    border: "border-l-medium", tag: "RF JAMMING", icon: Zap,
+    border: "border-l-medium", tag: "RF JAMMING", code: "RF",
     reasoning: "Reconnaissance complete. 4 ground station handovers logged. Executing RF jamming on 8.025 GHz during Diego Garcia pass. Expected payload comms disruption: 38%.",
   },
   {
     n: 3, t: "T+114s", delta: 23, total: 45,
-    border: "border-l-critical", tag: "GROUND STATION", icon: Server,
+    border: "border-l-critical", tag: "GROUND STATION", code: "GS",
     reasoning: "Comms degraded 45%. Pivoting to ground station exploit. Spoofed mission planning credentials accepted by Vandenberg GS. Injecting reaction-wheel reorient TC sequence.",
   },
   {
     n: 4, t: "T+152s", delta: 16, total: 61,
-    border: "border-l-high", tag: "COMMAND INJECTION", icon: Terminal,
+    border: "border-l-high", tag: "COMMAND INJECTION", code: "CMD",
     reasoning: "ADCS responded to malicious TC. Pointing error +4.2° from nadir. Payload imagery quality dropping. Escalating: deploying AI-tuned GNSS spoof aligned to victim Kalman filter.",
   },
   {
     n: 5, t: "T+190s", delta: 13, total: 74,
-    border: "border-l-[oklch(0.55_0.22_300)]", tag: "AI-ADAPTIVE GNSS", icon: BrainCircuit,
+    border: "border-l-[oklch(0.55_0.22_300)]", tag: "AI-ADAPTIVE GNSS", code: "AI",
     reasoning: "GNSS solution corrupted. Onboard EKF accepted false ECI position. EPS load-balancer entering thermal protection mode. Cascading into thermal subsystem in next tick.",
   },
   {
     n: 6, t: "T+228s", delta: 10, total: 84,
-    border: "border-l-medium", tag: "RF JAMMING", icon: Zap,
+    border: "border-l-medium", tag: "RF JAMMING", code: "RF",
     reasoning: "Thermal limits breached on +Y panel. Battery DoD exceeded safe envelope. Payload powered off via FDIR. Mission objective achieved: 84.2% sustained degradation.",
   },
 ];
