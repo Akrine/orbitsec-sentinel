@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
-import { Plus, X, Play, Pencil, Satellite as SatIcon, Download, ShieldAlert, Activity, DollarSign, Clock } from "lucide-react";
 
 export const Route = createFileRoute("/constellation")({
   head: () => ({
@@ -117,7 +116,7 @@ function Constellation() {
             title={`Satellite Roster · ${sats.length}/12`}
             action={
               <button onClick={addSat} disabled={sats.length >= 12} className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-primary hover:text-primary/80 disabled:opacity-40">
-                <Plus className="h-3 w-3" /> Add Satellite
+                Add Satellite
               </button>
             }
           >
@@ -130,13 +129,13 @@ function Constellation() {
               {sats.map((s) => (
                 <div key={s.id} className="panel-2 p-2.5">
                   <div className="flex items-center gap-2">
-                    <SatIcon className="h-3.5 w-3.5 text-primary" />
+                    <span className="w-8 text-[10px] font-mono font-bold text-primary">SAT</span>
                     <span className="text-xs font-mono font-semibold flex-1 truncate">{s.name}</span>
                     <button className="h-5 w-5 rounded hover:bg-background text-muted-foreground hover:text-primary flex items-center justify-center">
-                      <Pencil className="h-3 w-3" />
+                      <span className="text-[9px] font-mono">EDIT</span>
                     </button>
                     <button onClick={() => removeSat(s.id)} className="h-5 w-5 rounded hover:bg-background text-muted-foreground hover:text-critical flex items-center justify-center">
-                      <X className="h-3 w-3" />
+                      <span className="text-[9px] font-mono">DEL</span>
                     </button>
                   </div>
                   <div className="mt-1 text-[10px] font-mono text-muted-foreground">
@@ -283,7 +282,6 @@ function Constellation() {
                       onClick={() => setActor(a.id)}
                       className={`w-full text-left panel-2 px-2.5 py-2 flex items-center gap-2 ${actor === a.id ? "border-primary/60 bg-primary/5" : ""}`}
                     >
-                      <ShieldAlert className="h-3.5 w-3.5 text-primary" />
                       <span className="text-xs font-mono flex-1">{a.name}</span>
                       <StatusBadge level={a.risk} />
                     </button>
@@ -311,7 +309,7 @@ function Constellation() {
           </Panel>
 
           <button className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md bg-gradient-to-r from-primary to-accent text-primary-foreground font-display font-bold tracking-wider hover:brightness-110 shadow-[0_0_30px_-8px_oklch(0.78_0.16_195_/_0.6)]">
-            <Play className="h-4 w-4" /> RUN CONSTELLATION ATTACK
+            RUN CONSTELLATION ATTACK
           </button>
         </div>
       </div>
