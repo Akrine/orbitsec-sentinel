@@ -51,10 +51,6 @@ function SettingsPage() {
         <Panel title="General">
           <div className="p-5 space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Platform Name</label>
-              <Input value={platformName} onChange={(e) => setPlatformName(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
               <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Timezone</label>
               <Select value={timezone} onValueChange={setTimezone}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
