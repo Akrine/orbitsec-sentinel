@@ -323,22 +323,22 @@ function Constellation() {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="panel p-4">
-            <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground"><Activity className="h-3 w-3" /> Aggregate Degradation</div>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Aggregate Degradation</div>
             <div className="mt-2 text-3xl font-display font-bold">58.4%</div>
             <div className="text-[10px] font-mono text-muted-foreground mt-1">weighted by asset value</div>
           </div>
           <div className="panel p-4 border-critical/40">
-            <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground"><ShieldAlert className="h-3 w-3" /> Peak Degradation</div>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Peak Degradation</div>
             <div className="mt-2 text-3xl font-display font-bold text-critical">84.2%</div>
             <div className="text-[10px] font-mono text-muted-foreground mt-1">Sentinel-1A · primary target</div>
           </div>
           <div className="panel p-4 border-high/40">
-            <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground"><Clock className="h-3 w-3" /> Max Recovery Time</div>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Max Recovery Time</div>
             <div className="mt-2 text-3xl font-display font-bold text-high">6.8h</div>
             <div className="text-[10px] font-mono text-muted-foreground mt-1">end-to-end constellation</div>
           </div>
           <div className="panel p-4 border-success/40">
-            <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground"><DollarSign className="h-3 w-3" /> Total Cost</div>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Total Cost</div>
             <div className="mt-2 text-3xl font-display font-bold text-success">$4.2M</div>
             <div className="text-[10px] font-mono text-muted-foreground mt-1">downtime + recovery ops</div>
           </div>
@@ -350,7 +350,6 @@ function Constellation() {
               <div className="flex items-start gap-2">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <SatIcon className="h-3.5 w-3.5 text-primary" />
                     <span className="text-sm font-mono font-semibold">{r.name}</span>
                     <span className="text-[10px] font-mono text-muted-foreground">· {r.orbit}</span>
                   </div>
@@ -396,7 +395,7 @@ function Constellation() {
 
         <div className="mt-4 flex justify-end">
           <button className="inline-flex items-center gap-2 px-5 py-3 rounded-md bg-gradient-to-r from-primary to-accent text-primary-foreground font-display font-bold tracking-wider hover:brightness-110 shadow-[0_0_30px_-8px_oklch(0.78_0.16_195_/_0.6)]">
-            <Download className="h-4 w-4" /> EXPORT CONSTELLATION REPORT
+            EXPORT CONSTELLATION REPORT
           </button>
         </div>
       </div>
