@@ -2,13 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { AppShell, Panel } from "@/components/AppShell";
-import {
-  Save,
-  Trash2,
-  Upload,
-  ChevronDown,
-  ChevronRight,
-} from "lucide-react";
 
 export const Route = createFileRoute("/configure")({
   head: () => ({
@@ -148,13 +141,7 @@ function Section({
         <span className={`text-xs font-mono uppercase tracking-[0.18em] font-semibold ${a.text}`}>
           {title}
         </span>
-        <span className="ml-auto">
-          {open ? (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          )}
-        </span>
+        <span className="ml-auto text-[10px] font-mono text-muted-foreground">{open ? "OPEN" : "CLOSED"}</span>
       </button>
       {open && <div className="p-4 grid grid-cols-2 md:grid-cols-3 gap-3">{children}</div>}
     </div>
@@ -245,7 +232,7 @@ function Configure() {
                       Load
                     </button>
                     <button className="px-3 py-1.5 rounded-md panel-2 text-muted-foreground hover:text-critical hover:border-critical/40">
-                      <Trash2 className="h-3.5 w-3.5" />
+                      Delete
                     </button>
                   </div>
                 </div>
@@ -475,10 +462,10 @@ function Configure() {
               onClick={handleSave}
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md bg-success/10 border border-success/50 text-success text-sm font-semibold hover:bg-success/20"
             >
-              <Save className="h-4 w-4" /> Save Config
+              Save Config
             </button>
             <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md panel-2 text-sm hover:border-primary/40">
-              <Upload className="h-4 w-4" /> Import TLE / JSON
+              Import TLE / JSON
             </button>
           </div>
         </div>
