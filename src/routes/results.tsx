@@ -1,21 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
-import {
-  FileDown,
-  AlertTriangle,
-  DollarSign,
-  Clock,
-  ChevronRight,
-  Cpu,
-  Battery,
-  Radio,
-  Thermometer,
-  Camera,
-  Antenna,
-  CheckCircle2,
-  ShieldAlert,
-} from "lucide-react";
 
 export const Route = createFileRoute("/results")({
   head: () => ({
@@ -32,20 +17,20 @@ export const Route = createFileRoute("/results")({
 
 // ---------- DATA ----------
 const CASCADE = [
-  { sub: "ADCS", icon: Cpu, t: "T+00:42", impact: 88, tone: "critical" },
-  { sub: "EPS", icon: Battery, t: "T+01:18", impact: 72, tone: "critical" },
-  { sub: "COMMS", icon: Radio, t: "T+02:05", impact: 64, tone: "high" },
-  { sub: "THERMAL", icon: Thermometer, t: "T+03:11", impact: 41, tone: "medium" },
-  { sub: "PAYLOAD", icon: Camera, t: "T+04:32", impact: 91, tone: "critical" },
+  { sub: "ADCS", code: "ADCS", t: "T+00:42", impact: 88, tone: "critical" },
+  { sub: "EPS", code: "EPS", t: "T+01:18", impact: 72, tone: "critical" },
+  { sub: "COMMS", code: "COM", t: "T+02:05", impact: 64, tone: "high" },
+  { sub: "THERMAL", code: "THM", t: "T+03:11", impact: 41, tone: "medium" },
+  { sub: "PAYLOAD", code: "PLD", t: "T+04:32", impact: 91, tone: "critical" },
 ] as const;
 
 const SUBSYSTEMS = [
-  { name: "ADCS", icon: Cpu, before: 100, after: 12, status: "FAULT", tone: "critical" },
-  { name: "EPS", icon: Battery, before: 100, after: 28, status: "DEGRADED", tone: "high" },
-  { name: "COMMS", icon: Radio, before: 100, after: 36, status: "DEGRADED", tone: "high" },
-  { name: "THERMAL", icon: Thermometer, before: 100, after: 59, status: "WARN", tone: "medium" },
-  { name: "PAYLOAD", icon: Camera, before: 100, after: 9, status: "OFFLINE", tone: "critical" },
-  { name: "GROUND", icon: Antenna, before: 100, after: 44, status: "DEGRADED", tone: "high" },
+  { name: "ADCS", code: "ADCS", before: 100, after: 12, status: "FAULT", tone: "critical" },
+  { name: "EPS", code: "EPS", before: 100, after: 28, status: "DEGRADED", tone: "high" },
+  { name: "COMMS", code: "COM", before: 100, after: 36, status: "DEGRADED", tone: "high" },
+  { name: "THERMAL", code: "THM", before: 100, after: 59, status: "WARN", tone: "medium" },
+  { name: "PAYLOAD", code: "PLD", before: 100, after: 9, status: "OFFLINE", tone: "critical" },
+  { name: "GROUND", code: "GS", before: 100, after: 44, status: "DEGRADED", tone: "high" },
 ] as const;
 
 const SENS = [
@@ -175,7 +160,7 @@ function Results() {
       subtitle="MISSION IMPACT · CASCADE · UNCERTAINTY · RECOVERY"
       actions={
         <button className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90">
-          <FileDown className="h-3.5 w-3.5" /> Export PDF Report
+          Export PDF Report
         </button>
       }
     >
@@ -185,7 +170,7 @@ function Results() {
           <div className="absolute inset-0 bg-gradient-to-br from-critical/15 to-transparent" />
           <div className="relative">
             <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] text-critical">
-              <AlertTriangle className="h-3 w-3" /> Mission Degradation
+              Mission Degradation
             </div>
             <div className="mt-2 text-5xl font-display font-bold text-critical text-glow tabular-nums">84.2%</div>
             <div className="text-[11px] font-mono text-muted-foreground mt-1">σ ±2.1% · 500 MC runs</div>
@@ -193,14 +178,14 @@ function Results() {
         </div>
         <div className="panel p-5">
           <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] text-muted-foreground">
-            <DollarSign className="h-3 w-3" /> Operational Cost
+            Operational Cost
           </div>
           <div className="mt-2 text-3xl font-display font-semibold tabular-nums">$1.06M</div>
           <div className="text-[11px] font-mono text-muted-foreground mt-1">Mission revenue + recovery</div>
         </div>
         <div className="panel p-5">
           <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.16em] text-muted-foreground">
-            <Clock className="h-3 w-3" /> Recovery Time
+            Recovery Time
           </div>
           <div className="mt-2 text-3xl font-display font-semibold tabular-nums">4.2h</div>
           <div className="text-[11px] font-mono text-muted-foreground mt-1">To 95% mission capability</div>
@@ -242,7 +227,7 @@ function Results() {
                   <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-critical via-high to-medium" />
                   <div className="flex items-center gap-2">
                     <div className={`h-8 w-8 rounded-md bg-background border border-border flex items-center justify-center ${toneText(n.tone)}`}>
-                      <n.icon className="h-4 w-4" />
+                      <span className="text-[9px] font-mono font-bold">{n.code}</span>
                     </div>
                     <div>
                       <div className="text-sm font-semibold">{n.sub}</div>
@@ -259,7 +244,7 @@ function Results() {
                 </div>
                 {i < CASCADE.length - 1 && (
                   <div className="flex items-center text-primary">
-                    <ChevronRight className="h-5 w-5" />
+                    <span className="text-[10px] font-mono">NEXT</span>
                   </div>
                 )}
               </div>
@@ -276,7 +261,7 @@ function Results() {
               <div key={s.name} className="panel-2 p-4">
                 <div className="flex items-center gap-2">
                   <div className={`h-8 w-8 rounded-md bg-background border border-border flex items-center justify-center ${toneText(s.tone)}`}>
-                    <s.icon className="h-4 w-4" />
+                    <span className="text-[9px] font-mono font-bold">{s.code}</span>
                   </div>
                   <div className="flex-1">
                     <div className="text-sm font-semibold">{s.name}</div>
@@ -457,7 +442,7 @@ function Results() {
             <div className="mt-4 panel-2 p-4">
               <div className="flex items-start gap-3">
                 <span className={`h-8 w-8 rounded-md flex items-center justify-center ${SUB_COLOR[selected.sub].bg}/20 ${SUB_COLOR[selected.sub].text} border border-current/30`}>
-                  <ShieldAlert className="h-4 w-4" />
+                  <span className="text-[9px] font-mono font-bold">{selected.sub}</span>
                 </span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -541,7 +526,6 @@ function Results() {
           <div className="p-4 space-y-2">
             {VALIDATION.map((v) => (
               <div key={v} className="flex items-center gap-2 panel-2 px-3 py-2">
-                <CheckCircle2 className="h-4 w-4 text-success" />
                 <span className="text-sm">{v}</span>
                 <span className="ml-auto text-[10px] font-mono text-success">PASS</span>
               </div>

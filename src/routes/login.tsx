@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Shield } from "lucide-react";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -31,7 +30,7 @@ function LoginPage() {
           {/* Logo / Wordmark */}
           <div className="flex flex-col items-center gap-3 mb-8">
             <div className="h-12 w-12 rounded-lg panel-2 flex items-center justify-center">
-              <Shield className="h-6 w-6 text-primary" />
+              <span className="font-mono text-sm font-bold text-primary">OS</span>
             </div>
             <div className="text-center">
               <div className="text-xl font-display font-bold tracking-tight text-foreground">

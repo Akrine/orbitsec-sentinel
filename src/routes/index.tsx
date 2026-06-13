@@ -1,9 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
-import {
-  Activity, Satellite, AlertTriangle, FileText, ArrowUpRight,
-  Crosshair, Network, BrainCircuit, ChevronRight, TrendingUp, TrendingDown,
-} from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -16,10 +12,10 @@ export const Route = createFileRoute("/")({
 });
 
 const STATS = [
-  { label: "Simulations Run", value: "1,284", delta: "+47 (24h)", trend: "up", icon: Activity, color: "text-cyan" },
-  { label: "Active Satellites", value: "37", delta: "5 constellations", trend: "flat", icon: Satellite, color: "text-primary" },
-  { label: "Avg Mission Degradation", value: "62.4%", delta: "+4.1% wk", trend: "down", icon: AlertTriangle, color: "text-high" },
-  { label: "Reports Generated", value: "412", delta: "+18 (24h)", trend: "up", icon: FileText, color: "text-low" },
+  { label: "Simulations Run", value: "1,284", delta: "+47 (24h)", trend: "up", code: "SIM", color: "text-cyan" },
+  { label: "Active Satellites", value: "37", delta: "5 constellations", trend: "flat", code: "SAT", color: "text-primary" },
+  { label: "Avg Mission Degradation", value: "62.4%", delta: "+4.1% wk", trend: "down", code: "DEG", color: "text-high" },
+  { label: "Reports Generated", value: "412", delta: "+18 (24h)", trend: "up", code: "RPT", color: "text-low" },
 ];
 
 const RECENT = [
@@ -32,10 +28,10 @@ const RECENT = [
 ] as const;
 
 const ACTIONS = [
-  { to: "/attack", title: "Run New Simulation", desc: "Single-satellite attack scenario", icon: Crosshair, accent: "from-critical/20 to-transparent" },
-  { to: "/constellation", title: "Constellation Mode", desc: "Cascading multi-asset breach", icon: Network, accent: "from-primary/20 to-transparent" },
-  { to: "/adversary", title: "AI Adversary", desc: "Autonomous red-team agent", icon: BrainCircuit, accent: "from-high/20 to-transparent" },
-  { to: "/reports", title: "View Reports", desc: "412 archived assessments", icon: FileText, accent: "from-low/20 to-transparent" },
+  { to: "/attack", title: "Run New Simulation", desc: "Single-satellite attack scenario", code: "SIM", accent: "from-critical/20 to-transparent" },
+  { to: "/constellation", title: "Constellation Mode", desc: "Cascading multi-asset breach", code: "CST", accent: "from-primary/20 to-transparent" },
+  { to: "/adversary", title: "AI Adversary", desc: "Autonomous red-team agent", code: "ADV", accent: "from-high/20 to-transparent" },
+  { to: "/reports", title: "View Reports", desc: "412 archived assessments", code: "RPT", accent: "from-low/20 to-transparent" },
 ];
 
 function Dashboard() {
@@ -51,13 +47,13 @@ function Dashboard() {
                 <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-muted-foreground">{s.label}</div>
                 <div className="mt-2 text-3xl font-display font-semibold tracking-tight">{s.value}</div>
                 <div className="mt-1 flex items-center gap-1 text-[11px] font-mono text-muted-foreground">
-                  {s.trend === "up" && <TrendingUp className="h-3 w-3 text-success" />}
-                  {s.trend === "down" && <TrendingDown className="h-3 w-3 text-critical" />}
+                  {s.trend === "up" && <span className="text-success">UP</span>}
+                  {s.trend === "down" && <span className="text-critical">DN</span>}
                   {s.delta}
                 </div>
               </div>
               <div className={`h-9 w-9 rounded-md panel-2 flex items-center justify-center ${s.color}`}>
-                <s.icon className="h-4 w-4" />
+                <span className="text-[10px] font-mono font-bold">{s.code}</span>
               </div>
             </div>
           </div>
@@ -67,7 +63,7 @@ function Dashboard() {
       {/* Main grid */}
       <div className="mt-4 grid grid-cols-1 xl:grid-cols-3 gap-4">
         <Panel className="xl:col-span-2" title="Recent Simulations" action={
-          <Link to="/reports" className="text-[11px] font-mono uppercase tracking-wider text-primary hover:underline flex items-center gap-1">View all <ArrowUpRight className="h-3 w-3" /></Link>
+          <Link to="/reports" className="text-[11px] font-mono uppercase tracking-wider text-primary hover:underline">View all</Link>
         }>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -136,13 +132,13 @@ function Dashboard() {
             <div className={`absolute inset-0 bg-gradient-to-br ${a.accent} opacity-60 pointer-events-none`} />
             <div className="relative flex items-start gap-3">
               <div className="h-10 w-10 rounded-md panel-2 flex items-center justify-center text-primary">
-                <a.icon className="h-4.5 w-4.5" />
+                <span className="text-[10px] font-mono font-bold">{a.code}</span>
               </div>
               <div className="flex-1">
                 <div className="text-sm font-semibold">{a.title}</div>
                 <div className="text-xs text-muted-foreground mt-0.5">{a.desc}</div>
               </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+              <span className="text-xs font-mono text-muted-foreground group-hover:text-primary transition-colors">OPEN</span>
             </div>
           </Link>
         ))}

@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { AppShell, Panel } from "@/components/AppShell";
-import { BrainCircuit, Target, EyeOff, Crosshair, Play, Download, FileDown, Satellite as SatIcon, Radio, Zap, Server, Terminal, Activity } from "lucide-react";
 
 export const Route = createFileRoute("/adversary")({
   head: () => ({
@@ -20,21 +19,21 @@ const OBJECTIVES = [
     id: "max",
     name: "Maximum Damage",
     desc: "Inflict the highest possible mission degradation across all subsystems",
-    icon: Target,
+    code: "MAX",
     color: "critical" as const,
   },
   {
     id: "stealth",
     name: "Stealth Campaign",
     desc: "Persist undetected. Minimize anomaly signatures while exfiltrating telemetry",
-    icon: EyeOff,
+    code: "STL",
     color: "primary" as const,
   },
   {
     id: "payload",
     name: "Targeted Payload Disruption",
     desc: "Surgical strike on imaging payload while keeping bus nominal",
-    icon: Crosshair,
+    code: "PLD",
     color: "high" as const,
   },
 ];
@@ -55,39 +54,39 @@ type Iter = {
   total: number;
   border: string;
   tag: string;
-  icon: typeof Radio;
+  code: string;
   reasoning: string;
 };
 
 const ITERS: Iter[] = [
   {
     n: 1, t: "T+38s", delta: 8, total: 8,
-    border: "border-l-primary", tag: "GPS SPOOFING", icon: Radio,
+    border: "border-l-primary", tag: "GPS SPOOFING", code: "GPS",
     reasoning: "Assessed satellite defense posture. X-band downlink identified as weakest link due to L3 encryption fallback. Initiating reconnaissance sweep across primary uplink window.",
   },
   {
     n: 2, t: "T+76s", delta: 14, total: 22,
-    border: "border-l-medium", tag: "RF JAMMING", icon: Zap,
+    border: "border-l-medium", tag: "RF JAMMING", code: "RF",
     reasoning: "Reconnaissance complete. 4 ground station handovers logged. Executing RF jamming on 8.025 GHz during Diego Garcia pass. Expected payload comms disruption: 38%.",
   },
   {
     n: 3, t: "T+114s", delta: 23, total: 45,
-    border: "border-l-critical", tag: "GROUND STATION", icon: Server,
+    border: "border-l-critical", tag: "GROUND STATION", code: "GS",
     reasoning: "Comms degraded 45%. Pivoting to ground station exploit. Spoofed mission planning credentials accepted by Vandenberg GS. Injecting reaction-wheel reorient TC sequence.",
   },
   {
     n: 4, t: "T+152s", delta: 16, total: 61,
-    border: "border-l-high", tag: "COMMAND INJECTION", icon: Terminal,
+    border: "border-l-high", tag: "COMMAND INJECTION", code: "CMD",
     reasoning: "ADCS responded to malicious TC. Pointing error +4.2° from nadir. Payload imagery quality dropping. Escalating: deploying AI-tuned GNSS spoof aligned to victim Kalman filter.",
   },
   {
     n: 5, t: "T+190s", delta: 13, total: 74,
-    border: "border-l-[oklch(0.55_0.22_300)]", tag: "AI-ADAPTIVE GNSS", icon: BrainCircuit,
+    border: "border-l-[oklch(0.55_0.22_300)]", tag: "AI-ADAPTIVE GNSS", code: "AI",
     reasoning: "GNSS solution corrupted. Onboard EKF accepted false ECI position. EPS load-balancer entering thermal protection mode. Cascading into thermal subsystem in next tick.",
   },
   {
     n: 6, t: "T+228s", delta: 10, total: 84,
-    border: "border-l-medium", tag: "RF JAMMING", icon: Zap,
+    border: "border-l-medium", tag: "RF JAMMING", code: "RF",
     reasoning: "Thermal limits breached on +Y panel. Battery DoD exceeded safe envelope. Payload powered off via FDIR. Mission objective achieved: 84.2% sustained degradation.",
   },
 ];
@@ -127,7 +126,7 @@ function Adversary() {
                     sat === s ? "border-primary/60 bg-primary/10 text-foreground" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <SatIcon className="h-3.5 w-3.5 text-primary" />
+                  <span className="w-8 text-[10px] font-mono font-bold text-primary">SAT</span>
                   <span className="text-xs font-mono flex-1">{s}</span>
                   {sat === s && <span className="h-1.5 w-1.5 rounded-full bg-primary pulse-dot" />}
                 </button>
@@ -138,7 +137,6 @@ function Adversary() {
           <Panel title="Objective Mode">
             <div className="p-3 space-y-2">
               {OBJECTIVES.map((o) => {
-                const Icon = o.icon;
                 const sel = obj === o.id;
                 const accentBorder = o.color === "critical" ? "border-critical/60 bg-critical/5" : o.color === "primary" ? "border-primary/60 bg-primary/5" : "border-high/60 bg-high/5";
                 const iconColor = o.color === "critical" ? "text-critical" : o.color === "primary" ? "text-primary" : "text-high";
@@ -149,7 +147,7 @@ function Adversary() {
                     className={`w-full text-left panel-2 p-3 transition-colors ${sel ? accentBorder : "hover:border-border"}`}
                   >
                     <div className="flex items-center gap-2">
-                      <Icon className={`h-4 w-4 ${iconColor}`} />
+                      <span className={`w-8 text-[10px] font-mono font-bold ${iconColor}`}>{o.code}</span>
                       <span className="text-xs font-mono font-semibold uppercase tracking-wider">{o.name}</span>
                     </div>
                     <p className="mt-1.5 text-[11px] font-mono text-muted-foreground leading-relaxed">{o.desc}</p>
@@ -181,7 +179,7 @@ function Adversary() {
           <button className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md text-white font-display font-bold tracking-wider hover:brightness-110 shadow-[0_0_40px_-8px_oklch(0.55_0.22_300_/_0.8)]"
             style={{ background: "linear-gradient(135deg, #6a1b9a 0%, #4a148c 100%)" }}
           >
-            <BrainCircuit className="h-4 w-4" /> DEPLOY ADVERSARY
+            DEPLOY ADVERSARY
           </button>
         </div>
 
@@ -200,7 +198,6 @@ function Adversary() {
           >
             <div className="p-3 space-y-2.5 max-h-[860px] overflow-auto">
               {ITERS.map((it) => {
-                const Icon = it.icon;
                 return (
                   <div key={it.n} className={`panel-2 border-l-4 ${it.border} p-3`}>
                     <div className="flex items-center gap-2 flex-wrap">
@@ -208,7 +205,7 @@ function Adversary() {
                         ITERATION {String(it.n).padStart(2, "0")}
                       </span>
                       <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                        <Icon className="h-3 w-3" />
+                        <span className="font-bold text-primary">{it.code}</span>
                         {it.tag}
                       </span>
                       <span className="text-[10px] font-mono text-muted-foreground">{it.t}</span>
@@ -247,10 +244,10 @@ function Adversary() {
             <button className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md text-white font-display font-bold tracking-wider hover:brightness-110 shadow-[0_0_40px_-10px_oklch(0.55_0.22_300_/_0.7)]"
               style={{ background: "linear-gradient(135deg, #6a1b9a 0%, #4a148c 100%)" }}
             >
-              <FileDown className="h-4 w-4" /> DOWNLOAD ADVERSARY REPORT PDF
+              DOWNLOAD ADVERSARY REPORT PDF
             </button>
             <button className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md panel hover:border-primary/40 font-display font-semibold tracking-wider">
-              <Download className="h-4 w-4" /> EXPORT JSON / SPARTA
+              EXPORT JSON / SPARTA
             </button>
           </div>
         </div>
@@ -314,7 +311,6 @@ function Adversary() {
             <div className="p-3">
               <div className="panel-2 border-critical/40 bg-critical/5 px-3 py-2.5">
                 <div className="flex items-center gap-2">
-                  <Activity className="h-3.5 w-3.5 text-critical" />
                   <span className="text-xs font-mono font-bold text-critical">Satellite Compromised (&gt;75%)</span>
                 </div>
                 <div className="mt-1 text-[10px] font-mono text-muted-foreground">
@@ -355,7 +351,7 @@ function Adversary() {
           <button className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-md text-white font-display font-bold tracking-wider hover:brightness-110 shadow-[0_0_30px_-8px_oklch(0.55_0.22_300_/_0.7)]"
             style={{ background: "linear-gradient(135deg, #6a1b9a 0%, #4a148c 100%)" }}
           >
-            <Play className="h-4 w-4" /> RE-DEPLOY ADVERSARY
+            RE-DEPLOY ADVERSARY
           </button>
         </div>
       </div>
