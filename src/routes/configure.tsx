@@ -3,21 +3,11 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { AppShell, Panel } from "@/components/AppShell";
 import {
-  Satellite,
   Save,
   Trash2,
   Upload,
   ChevronDown,
   ChevronRight,
-  Radio,
-  Compass,
-  Zap,
-  Antenna,
-  Thermometer,
-  Camera,
-  Globe,
-  ShieldAlert,
-  DollarSign,
 } from "lucide-react";
 
 export const Route = createFileRoute("/configure")({
@@ -138,13 +128,11 @@ const ACCENT: Record<string, { bar: string; text: string; chip: string }> = {
 function Section({
   title,
   accent,
-  icon: Icon,
   defaultOpen = true,
   children,
 }: {
   title: string;
   accent: keyof typeof ACCENT;
-  icon?: React.ComponentType<{ className?: string }>;
   defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
@@ -157,7 +145,6 @@ function Section({
         className={`w-full flex items-center gap-2.5 px-4 py-2.5 border-b border-border ${a.chip} hover:brightness-110`}
       >
         <span className={`h-4 w-1 rounded-sm ${a.bar}`} />
-        {Icon && <Icon className={`h-3.5 w-3.5 ${a.text}`} />}
         <span className={`text-xs font-mono uppercase tracking-[0.18em] font-semibold ${a.text}`}>
           {title}
         </span>
@@ -230,7 +217,7 @@ function Configure() {
                 <div key={s.name} className="p-3.5 hover:bg-surface-2/50">
                   <div className="flex items-center gap-2.5">
                     <div className="h-8 w-8 rounded-md bg-primary/10 border border-primary/30 flex items-center justify-center text-primary">
-                      <Satellite className="h-3.5 w-3.5" />
+                      <span className="text-[10px] font-mono font-bold">SAT</span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold font-mono truncate">{s.name}</div>
@@ -307,7 +294,6 @@ function Configure() {
         {/* RIGHT: Form */}
         <div className="space-y-3">
           <div className="panel rounded-lg p-4 flex items-center gap-4">
-            <Radio className="h-4 w-4 text-primary" />
             <div className="flex-1">
               <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground">
                 Mission Type
@@ -322,7 +308,7 @@ function Configure() {
             </div>
           </div>
 
-          <Section title="Orbital Parameters" accent="grey" icon={Compass}>
+          <Section title="Orbital Parameters" accent="grey">
             <Field label="Altitude (km)">
               <Input type="number" defaultValue={400} min={200} max={40000} />
             </Field>
@@ -331,7 +317,7 @@ function Configure() {
             </Field>
           </Section>
 
-          <Section title="ADCS" accent="cyan" icon={Compass}>
+          <Section title="ADCS" accent="cyan">
             <Field label="Pointing Accuracy (deg)"><Input type="number" defaultValue={0.1} step={0.01} /></Field>
             <Field label="Reaction Wheels"><Input type="number" defaultValue={4} /></Field>
             <Field label="Star Trackers"><Input type="number" defaultValue={2} /></Field>
@@ -366,7 +352,7 @@ function Configure() {
             <Field label="Specific Impulse (s)"><Input type="number" defaultValue={220} /></Field>
           </Section>
 
-          <Section title="EPS" accent="yellow" icon={Zap}>
+          <Section title="EPS" accent="yellow">
             <Field label="Solar Panel Area (m²)"><Input type="number" defaultValue={4.0} step={0.1} /></Field>
             <Field label="Cell Efficiency"><Input type="number" defaultValue={0.30} step={0.01} /></Field>
             <Field label="Solar Arrays"><Input type="number" defaultValue={2} /></Field>
@@ -381,7 +367,7 @@ function Configure() {
             </div>
           </Section>
 
-          <Section title="Comms" accent="green" icon={Antenna}>
+          <Section title="Comms" accent="green">
             <Field label="S-Band Antennas"><Input type="number" defaultValue={2} /></Field>
             <Field label="S-Band Gain (dBi)"><Input type="number" defaultValue={12.0} step={0.1} /></Field>
             <Field label="S-Band Freq (MHz)"><Input type="number" defaultValue={2200} /></Field>
@@ -423,7 +409,7 @@ function Configure() {
             </div>
           </Section>
 
-          <Section title="Thermal" accent="orange" icon={Thermometer}>
+          <Section title="Thermal" accent="orange">
             <Field label="Radiator Area (m²)"><Input type="number" defaultValue={2.0} step={0.1} /></Field>
             <Field label="Emissivity"><Input type="number" defaultValue={0.85} step={0.01} /></Field>
             <Field label="Heaters"><Input type="number" defaultValue={6} /></Field>
@@ -439,7 +425,7 @@ function Configure() {
             </Field>
           </Section>
 
-          <Section title="Payload" accent="purple" icon={Camera}>
+          <Section title="Payload" accent="purple">
             <Field label="Optical Aperture (m)"><Input type="number" defaultValue={0.5} step={0.1} /></Field>
             <Field label="Focal Length (m)"><Input type="number" defaultValue={5.0} step={0.1} /></Field>
             <Field label="GSD (m)"><Input type="number" defaultValue={1.0} step={0.1} /></Field>
@@ -449,7 +435,7 @@ function Configure() {
             <Field label="Pointing Req (deg)"><Input type="number" defaultValue={0.01} step={0.01} /></Field>
           </Section>
 
-          <Section title="Ground Segment" accent="red" icon={Globe}>
+          <Section title="Ground Segment" accent="red">
             <Field label="Ground Stations"><Input type="number" defaultValue={3} /></Field>
             <Field label="Uplink Freq (MHz)"><Input type="number" defaultValue={2025} /></Field>
             <Field label="Downlink Freq (MHz)"><Input type="number" defaultValue={2200} /></Field>
@@ -474,11 +460,11 @@ function Configure() {
             </Field>
           </Section>
 
-          <Section title="Radiation Hardening" accent="darkpurple" icon={ShieldAlert}>
+          <Section title="Radiation Hardening" accent="darkpurple">
             <Field label="Total Ionizing Dose (krad)"><Input type="number" defaultValue={20} /></Field>
           </Section>
 
-          <Section title="Financial Parameters" accent="darkgreen" icon={DollarSign}>
+          <Section title="Financial Parameters" accent="darkgreen">
             <Field label="Downtime Rate ($/hr)"><Input type="number" defaultValue={15000} /></Field>
             <Field label="Asset Value ($M)"><Input type="number" defaultValue={300} /></Field>
             <Field label="Recovery Ops Rate ($/hr)"><Input type="number" defaultValue={5000} /></Field>
