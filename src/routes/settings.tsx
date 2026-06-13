@@ -23,7 +23,7 @@ export const Route = createFileRoute("/settings")({
 });
 
 function SettingsPage() {
-  const [platformName, setPlatformName] = useState("OrbitSec");
+  
   const [timezone, setTimezone] = useState("UTC");
   const [sessionTimeout, setSessionTimeout] = useState("1 hour");
   const [classification, setClassification] = useState("UNCLASSIFIED");
