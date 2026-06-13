@@ -166,7 +166,7 @@ function Scenarios() {
                         P{i + 1}
                       </span>
                       <span className="text-xs font-mono flex-1">{p.name}</span>
-                      {i < 2 && <ArrowRight className="h-3 w-3 text-muted-foreground" />}
+                      {i < 2 && <span className="text-[10px] font-mono text-muted-foreground">NEXT</span>}
                     </div>
                   ))}
                 </div>
@@ -287,7 +287,7 @@ function Scenarios() {
                     <div className="mt-3 panel-2 px-3 py-2 flex items-center gap-3">
                       <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Health</span>
                       <span className="text-sm font-mono font-semibold">{r.healthStart}%</span>
-                      <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-[10px] font-mono text-muted-foreground">TO</span>
                       <span className={`text-sm font-mono font-bold ${color(r.healthEnd).txt}`}>{r.healthEnd}%</span>
                       <div className="flex-1 h-1.5 bg-background rounded overflow-hidden ml-2">
                         <div className={`h-full ${color(r.healthEnd).bar}`} style={{ width: `${r.healthEnd}%` }} />
