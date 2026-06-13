@@ -1,30 +1,15 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
-import {
-  LayoutDashboard,
-  Satellite,
-  Crosshair,
-  Network,
-  BrainCircuit,
-  FileText,
-  Settings,
-  ChevronLeft,
-  LogOut,
-  Search,
-  Bell,
-  Radio,
-  Layers,
-} from "lucide-react";
 
 const NAV = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/configure", label: "Satellite Config", icon: Satellite },
-  { to: "/attack", label: "New Simulation", icon: Crosshair },
-  { to: "/scenarios", label: "Mission Scenarios", icon: Layers },
-  { to: "/constellation", label: "Constellation", icon: Network },
-  { to: "/adversary", label: "AI Adversary", icon: BrainCircuit },
-  { to: "/reports", label: "Reports", icon: FileText },
-  { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/", label: "Dashboard" },
+  { to: "/configure", label: "Satellite Config" },
+  { to: "/attack", label: "New Simulation" },
+  { to: "/scenarios", label: "Mission Scenarios" },
+  { to: "/constellation", label: "Constellation" },
+  { to: "/adversary", label: "AI Adversary" },
+  { to: "/reports", label: "Reports" },
+  { to: "/settings", label: "Settings" },
 ];
 
 export function AppShell({ children, title, subtitle, actions }: {
@@ -43,7 +28,7 @@ export function AppShell({ children, title, subtitle, actions }: {
       >
         <div className="h-14 flex items-center gap-2 px-4 border-b border-sidebar-border">
           <div className="h-7 w-7 rounded-md bg-primary/15 border border-primary/30 flex items-center justify-center">
-            <Radio className="h-3.5 w-3.5 text-primary" />
+            <span className="text-[10px] font-mono font-bold text-primary">OS</span>
           </div>
           {!collapsed && (
             <div className="flex-1">
@@ -55,7 +40,7 @@ export function AppShell({ children, title, subtitle, actions }: {
             onClick={() => setCollapsed((c) => !c)}
             className="ml-auto h-6 w-6 flex items-center justify-center rounded hover:bg-sidebar-accent text-muted-foreground"
           >
-            <ChevronLeft className={`h-3.5 w-3.5 transition-transform ${collapsed ? "rotate-180" : ""}`} />
+            <span className="text-xs font-mono">{collapsed ? "OPEN" : "MIN"}</span>
           </button>
         </div>
 
@@ -65,7 +50,7 @@ export function AppShell({ children, title, subtitle, actions }: {
               Operations
             </div>
           )}
-          {NAV.map(({ to, label, icon: Icon }) => {
+          {NAV.map(({ to, label }) => {
             const active = to === "/" ? pathname === "/" : pathname.startsWith(to);
             return (
               <Link
@@ -77,7 +62,7 @@ export function AppShell({ children, title, subtitle, actions }: {
                     : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50 border-l-2 border-transparent"
                 }`}
               >
-                <Icon className="h-4 w-4 shrink-0" />
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-50" />
                 {!collapsed && <span className="truncate">{label}</span>}
                 {!collapsed && active && (
                   <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary pulse-dot" />
@@ -98,7 +83,7 @@ export function AppShell({ children, title, subtitle, actions }: {
                 <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">SOC · L4 Clearance</div>
               </div>
               <button className="h-7 w-7 flex items-center justify-center rounded hover:bg-sidebar-accent text-muted-foreground">
-                <LogOut className="h-3.5 w-3.5" />
+                <span className="text-[10px] font-mono">OUT</span>
               </button>
             </div>
           ) : (
@@ -119,12 +104,11 @@ export function AppShell({ children, title, subtitle, actions }: {
           </div>
           <div className="ml-auto flex items-center gap-2">
             <div className="hidden md:flex items-center gap-2 panel px-2.5 py-1.5 text-xs text-muted-foreground w-72">
-              <Search className="h-3.5 w-3.5" />
               <input placeholder="Search satellites, sims, reports…" className="bg-transparent outline-none flex-1 text-foreground placeholder:text-muted-foreground" />
               <kbd className="font-mono text-[10px] px-1 py-0.5 rounded border border-border bg-background text-muted-foreground">⌘K</kbd>
             </div>
             <button className="h-8 w-8 panel flex items-center justify-center text-muted-foreground hover:text-foreground relative">
-              <Bell className="h-3.5 w-3.5" />
+              <span className="text-[10px] font-mono">ALRT</span>
               <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-critical pulse-dot" />
             </button>
             <div className="hidden lg:flex items-center gap-1.5 panel px-2.5 py-1.5 text-[11px] font-mono uppercase tracking-wider">
