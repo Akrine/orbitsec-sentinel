@@ -66,7 +66,7 @@ function Check({ checked, onChange, label }: { checked: boolean; onChange: (v: b
     <button onClick={() => onChange(!checked)} type="button"
       className="w-full panel-2 px-3 py-2.5 flex items-center gap-3 hover:border-primary/40 text-left">
       <span className={`h-4 w-4 rounded border ${checked ? "bg-primary border-primary" : "border-border bg-background"}`}>
-        {checked && <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 text-primary-foreground"><path fill="currentColor" d="M6.5 11L3 7.5l1-1 2.5 2.5 5.5-5.5 1 1z"/></svg>}
+        {checked && <span className="block h-1.5 w-1.5 rounded-full bg-primary-foreground m-[4px]" />}
       </span>
       <span className="text-sm">{label}</span>
     </button>
