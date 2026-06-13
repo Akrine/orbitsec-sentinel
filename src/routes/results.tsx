@@ -1,21 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
-import {
-  FileDown,
-  AlertTriangle,
-  DollarSign,
-  Clock,
-  ChevronRight,
-  Cpu,
-  Battery,
-  Radio,
-  Thermometer,
-  Camera,
-  Antenna,
-  CheckCircle2,
-  ShieldAlert,
-} from "lucide-react";
 
 export const Route = createFileRoute("/results")({
   head: () => ({
@@ -32,20 +17,20 @@ export const Route = createFileRoute("/results")({
 
 // ---------- DATA ----------
 const CASCADE = [
-  { sub: "ADCS", icon: Cpu, t: "T+00:42", impact: 88, tone: "critical" },
-  { sub: "EPS", icon: Battery, t: "T+01:18", impact: 72, tone: "critical" },
-  { sub: "COMMS", icon: Radio, t: "T+02:05", impact: 64, tone: "high" },
-  { sub: "THERMAL", icon: Thermometer, t: "T+03:11", impact: 41, tone: "medium" },
-  { sub: "PAYLOAD", icon: Camera, t: "T+04:32", impact: 91, tone: "critical" },
+  { sub: "ADCS", code: "ADCS", t: "T+00:42", impact: 88, tone: "critical" },
+  { sub: "EPS", code: "EPS", t: "T+01:18", impact: 72, tone: "critical" },
+  { sub: "COMMS", code: "COM", t: "T+02:05", impact: 64, tone: "high" },
+  { sub: "THERMAL", code: "THM", t: "T+03:11", impact: 41, tone: "medium" },
+  { sub: "PAYLOAD", code: "PLD", t: "T+04:32", impact: 91, tone: "critical" },
 ] as const;
 
 const SUBSYSTEMS = [
-  { name: "ADCS", icon: Cpu, before: 100, after: 12, status: "FAULT", tone: "critical" },
-  { name: "EPS", icon: Battery, before: 100, after: 28, status: "DEGRADED", tone: "high" },
-  { name: "COMMS", icon: Radio, before: 100, after: 36, status: "DEGRADED", tone: "high" },
-  { name: "THERMAL", icon: Thermometer, before: 100, after: 59, status: "WARN", tone: "medium" },
-  { name: "PAYLOAD", icon: Camera, before: 100, after: 9, status: "OFFLINE", tone: "critical" },
-  { name: "GROUND", icon: Antenna, before: 100, after: 44, status: "DEGRADED", tone: "high" },
+  { name: "ADCS", code: "ADCS", before: 100, after: 12, status: "FAULT", tone: "critical" },
+  { name: "EPS", code: "EPS", before: 100, after: 28, status: "DEGRADED", tone: "high" },
+  { name: "COMMS", code: "COM", before: 100, after: 36, status: "DEGRADED", tone: "high" },
+  { name: "THERMAL", code: "THM", before: 100, after: 59, status: "WARN", tone: "medium" },
+  { name: "PAYLOAD", code: "PLD", before: 100, after: 9, status: "OFFLINE", tone: "critical" },
+  { name: "GROUND", code: "GS", before: 100, after: 44, status: "DEGRADED", tone: "high" },
 ] as const;
 
 const SENS = [
