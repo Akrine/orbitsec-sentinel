@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
-import { Search, Filter, Download, FileDown, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/reports")({
   head: () => ({
@@ -105,7 +104,7 @@ function Reports() {
       subtitle="ASSESSMENT ARCHIVE · ALL MISSIONS"
       actions={
         <button className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-primary/50 text-primary text-xs font-semibold hover:bg-primary/10">
-          <FileDown className="h-3.5 w-3.5" /> Bulk Export
+          Bulk Export
         </button>
       }
     >
@@ -121,7 +120,6 @@ function Reports() {
         {/* Search + Filters */}
         <div className="p-4 flex flex-wrap items-center gap-2 border-b border-border">
           <div className="flex items-center gap-2 panel-2 px-2.5 py-1.5 text-xs flex-1 min-w-[280px] bg-surface-2 border border-border rounded">
-            <Search className="h-3.5 w-3.5 text-muted-foreground" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -130,7 +128,6 @@ function Reports() {
             />
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <Filter className="h-3.5 w-3.5 text-muted-foreground" />
             <select value={risk} onChange={(e) => setRisk(e.target.value)} className="px-2.5 py-1.5 text-xs font-mono bg-surface-2 border border-border rounded">
               <option>All</option><option>CRITICAL</option><option>HIGH</option><option>MEDIUM</option><option>LOW</option>
             </select>
@@ -152,10 +149,10 @@ function Reports() {
             <span className="text-primary">{selected.size} report{selected.size === 1 ? "" : "s"} selected</span>
             <div className="flex items-center gap-2">
               <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded border border-primary/50 text-primary hover:bg-primary/10">
-                <Download className="h-3 w-3" /> Export Selected PDF
+                Export Selected PDF
               </button>
               <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded border border-destructive/50 text-destructive hover:bg-destructive/10">
-                <Trash2 className="h-3 w-3" /> Delete Selected
+                Delete Selected
               </button>
             </div>
           </div>
@@ -198,7 +195,7 @@ function Reports() {
                   <td className="px-4 py-3 text-right font-mono">{r.cost}</td>
                   <td className="px-4 py-3 text-right">
                     <button className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-mono rounded border border-primary/40 text-primary hover:bg-primary/10">
-                      <Download className="h-3 w-3" /> PDF
+                      PDF
                     </button>
                   </td>
                 </tr>
@@ -215,11 +212,11 @@ function Reports() {
           <span>Showing 1–{filtered.length} of 412 reports</span>
           <div className="flex items-center gap-2">
             <button className="inline-flex items-center gap-1 px-2 py-1 rounded border border-border hover:bg-surface-2">
-              <ChevronLeft className="h-3 w-3" /> Previous
+              Previous
             </button>
             <span className="px-2">Page 1 of 35</span>
             <button className="inline-flex items-center gap-1 px-2 py-1 rounded border border-border hover:bg-surface-2">
-              Next <ChevronRight className="h-3 w-3" />
+              Next
             </button>
           </div>
         </div>
