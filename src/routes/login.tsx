@@ -1,7 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { login } from "@/lib/api";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -14,11 +15,24 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
+  const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      await login(username, password);
+      navigate({ to: "/" });
+    } catch {
+      setError("Invalid username or password.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -70,10 +84,17 @@ function LoginPage() {
 
             <Button
               type="submit"
+              disabled={loading}
               className="w-full h-10 mt-2 bg-gradient-to-r from-primary to-cyan text-primary-foreground font-semibold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity"
             >
-              LOGIN
+              {loading ? "AUTHENTICATING…" : "LOGIN"}
             </Button>
+
+            {error && (
+              <div className="text-[11px] font-mono uppercase tracking-[0.12em] text-destructive text-center">
+                {error}
+              </div>
+            )}
           </form>
         </div>
 
