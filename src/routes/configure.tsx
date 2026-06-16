@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell, Panel } from "@/components/AppShell";
+import { apiFetch } from "@/lib/api";
 
 export const Route = createFileRoute("/configure")({
   head: () => ({
@@ -17,13 +18,6 @@ export const Route = createFileRoute("/configure")({
   component: Configure,
 });
 
-const SAVED = [
-  { name: "Sentinel-1A", orbit: "LEO · 693km · 98.18°", enc: 3, wheels: 4, mod: "QPSK" },
-  { name: "SBIRS-GEO-5", orbit: "GEO · 35,786km · 0.05°", enc: 5, wheels: 4, mod: "8PSK" },
-  { name: "WorldView-3", orbit: "LEO · 617km · 97.97°", enc: 4, wheels: 4, mod: "8PSK" },
-  { name: "GOES-18", orbit: "GEO · 35,786km · 0.12°", enc: 4, wheels: 4, mod: "QPSK" },
-  { name: "WGS-10", orbit: "GEO · 35,786km · 0.03°", enc: 5, wheels: 6, mod: "8PSK" },
-];
 
 // ---------- primitives ----------
 function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
