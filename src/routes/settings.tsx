@@ -1,16 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppShell, Panel } from "@/components/AppShell";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Slider } from "@/components/ui/slider";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { toast } from "sonner";
+import { apiFetch, logout } from "@/lib/api";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -22,215 +14,260 @@ export const Route = createFileRoute("/settings")({
   component: SettingsPage,
 });
 
+const baseURL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8001";
+
+type SavedConfig = { name: string; created_at?: string; config?: unknown };
+type Report = Record<string, unknown> & { id?: string | number };
+
+function tsSafe(): string {
+  return new Date().toISOString().replace(/[:.]/g, "-");
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 function SettingsPage() {
-  
-  const [timezone, setTimezone] = useState("UTC");
-  const [sessionTimeout, setSessionTimeout] = useState("1 hour");
-  const [classification, setClassification] = useState("UNCLASSIFIED");
-  const [autoSave, setAutoSave] = useState(true);
+  const navigate = useNavigate();
 
-  const [severity, setSeverity] = useState(70);
-  const [duration, setDuration] = useState(300);
-  const [threatActor, setThreatActor] = useState("Sophisticated APT");
-  const [attackType, setAttackType] = useState("AI-Adaptive GNSS Spoofing");
-  const [uncertainty, setUncertainty] = useState(true);
-  const [sensitivity, setSensitivity] = useState(true);
-  const [lhsSamples, setLhsSamples] = useState(500);
+  const [configs, setConfigs] = useState<SavedConfig[]>([]);
+  const [configsLoading, setConfigsLoading] = useState(true);
+  const [clearingConfigs, setClearingConfigs] = useState(false);
 
-  const [simAlert, setSimAlert] = useState(true);
-  const [reportAlert, setReportAlert] = useState(true);
-  const [criticalAlert, setCriticalAlert] = useState(true);
-  const [statusAlert, setStatusAlert] = useState(true);
-  const [emailNotif, setEmailNotif] = useState(false);
-  const [email, setEmail] = useState("");
+  const [reports, setReports] = useState<Report[]>([]);
+  const [reportsLoading, setReportsLoading] = useState(true);
+  const [clearingReports, setClearingReports] = useState(false);
+
+  const [health, setHealth] = useState<
+    | { status: "checking" }
+    | { status: "online"; timestamp?: string }
+    | { status: "offline"; error?: string }
+  >({ status: "checking" });
+
+  const loadConfigs = useCallback(async () => {
+    setConfigsLoading(true);
+    try {
+      const res = await apiFetch("/api/configs");
+      if (!res.ok) throw new Error(String(res.status));
+      const data = (await res.json()) as SavedConfig[];
+      setConfigs(Array.isArray(data) ? data : []);
+    } catch {
+      setConfigs([]);
+    } finally {
+      setConfigsLoading(false);
+    }
+  }, []);
+
+  const loadReports = useCallback(async () => {
+    setReportsLoading(true);
+    try {
+      const res = await apiFetch("/api/reports?limit=500");
+      if (!res.ok) throw new Error(String(res.status));
+      const data = (await res.json()) as Report[];
+      setReports(Array.isArray(data) ? data : []);
+    } catch {
+      setReports([]);
+    } finally {
+      setReportsLoading(false);
+    }
+  }, []);
+
+  const pingHealth = useCallback(async () => {
+    setHealth({ status: "checking" });
+    try {
+      const res = await fetch(`${baseURL}/health`);
+      if (!res.ok) {
+        setHealth({ status: "offline", error: String(res.status) });
+        return;
+      }
+      let timestamp: string | undefined;
+      try {
+        const j = (await res.json()) as { timestamp?: string; time?: string };
+        timestamp = j?.timestamp ?? j?.time;
+      } catch {
+        // ignore
+      }
+      setHealth({ status: "online", timestamp });
+    } catch (e) {
+      setHealth({ status: "offline", error: (e as Error).message });
+    }
+  }, []);
+
+  useEffect(() => {
+    loadConfigs();
+    loadReports();
+    pingHealth();
+  }, [loadConfigs, loadReports, pingHealth]);
+
+  async function clearAllConfigs() {
+    const n = configs.length;
+    if (n === 0) return;
+    if (!window.confirm(`Delete all ${n} saved configurations? This cannot be undone.`)) return;
+    setClearingConfigs(true);
+    let failed = 0;
+    for (const c of configs) {
+      try {
+        const res = await apiFetch(`/api/configs/${encodeURIComponent(c.name)}`, {
+          method: "DELETE",
+        });
+        if (!res.ok) failed++;
+      } catch {
+        failed++;
+      }
+    }
+    setClearingConfigs(false);
+    if (failed) toast.error(`${failed} deletion(s) failed`);
+    else toast.success(`Deleted ${n} configuration(s)`);
+    loadConfigs();
+  }
+
+  function exportHistory() {
+    const blob = new Blob([JSON.stringify(reports, null, 2)], { type: "application/json" });
+    downloadBlob(blob, `orbitsec_history_${tsSafe()}.json`);
+  }
+
+  async function clearHistory() {
+    if (reports.length === 0) return;
+    if (!window.confirm("Delete ALL assessment history? This cannot be undone.")) return;
+    setClearingReports(true);
+    try {
+      const res = await apiFetch("/api/reports", { method: "DELETE" });
+      if (!res.ok) throw new Error(String(res.status));
+      toast.success("Assessment history cleared");
+      loadReports();
+    } catch (e) {
+      toast.error((e as Error).message || "Failed to clear history");
+    } finally {
+      setClearingReports(false);
+    }
+  }
+
+  function handleLogout() {
+    logout();
+    navigate({ to: "/login" });
+  }
 
   return (
-    <AppShell title="Settings" subtitle="PLATFORM CONFIGURATION · v2.4">
+    <AppShell title="Settings" subtitle="PLATFORM CONFIGURATION">
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        {/* Panel 1 — General */}
-        <Panel title="General">
-          <div className="p-5 space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Timezone</label>
-              <Select value={timezone} onValueChange={setTimezone}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="UTC">UTC</SelectItem>
-                  <SelectItem value="EST">EST</SelectItem>
-                  <SelectItem value="PST">PST</SelectItem>
-                  <SelectItem value="GMT">GMT</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Session Timeout</label>
-              <Select value={sessionTimeout} onValueChange={setSessionTimeout}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="30 minutes">30 minutes</SelectItem>
-                  <SelectItem value="1 hour">1 hour</SelectItem>
-                  <SelectItem value="4 hours">4 hours</SelectItem>
-                  <SelectItem value="8 hours">8 hours</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Classification Level</label>
-              <Select value={classification} onValueChange={setClassification}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="UNCLASSIFIED">UNCLASSIFIED</SelectItem>
-                  <SelectItem value="CUI">CUI</SelectItem>
-                  <SelectItem value="SECRET">SECRET</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center justify-between pt-1">
-              <span className="text-sm">Auto-save Configurations</span>
-              <Switch checked={autoSave} onCheckedChange={setAutoSave} />
-            </div>
-          </div>
-        </Panel>
-
-        {/* Panel 2 — Simulation Defaults */}
-        <Panel title="Simulation Defaults">
-          <div className="p-5 space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Default Severity — {severity}%</label>
-              <Slider value={[severity]} max={100} step={1} onValueChange={(v) => setSeverity(v[0])} />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Default Duration (seconds)</label>
-              <Input type="number" value={duration} onChange={(e) => setDuration(Number(e.target.value))} />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Default Threat Actor</label>
-              <Select value={threatActor} onValueChange={setThreatActor}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Nation-State">Nation-State</SelectItem>
-                  <SelectItem value="Sophisticated APT">Sophisticated APT</SelectItem>
-                  <SelectItem value="Insider Threat">Insider Threat</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Default Attack Type</label>
-              <Select value={attackType} onValueChange={setAttackType}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="GPS Spoofing">GPS Spoofing</SelectItem>
-                  <SelectItem value="RF Jamming">RF Jamming</SelectItem>
-                  <SelectItem value="Command Injection">Command Injection</SelectItem>
-                  <SelectItem value="Ground Station Compromise">Ground Station Compromise</SelectItem>
-                  <SelectItem value="AI-Adaptive GNSS Spoofing">AI-Adaptive GNSS Spoofing</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Uncertainty Quantification</span>
-              <Switch checked={uncertainty} onCheckedChange={setUncertainty} />
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Sensitivity Analysis</span>
-              <Switch checked={sensitivity} onCheckedChange={setSensitivity} />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">LHS Sample Count</label>
-              <Input type="number" value={lhsSamples} onChange={(e) => setLhsSamples(Number(e.target.value))} />
-            </div>
-          </div>
-        </Panel>
-
-        {/* Panel 3 — Notifications */}
-        <Panel title="Notifications">
-          <div className="p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Simulation Complete Alert</span>
-              <Switch checked={simAlert} onCheckedChange={setSimAlert} />
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Report Ready Alert</span>
-              <Switch checked={reportAlert} onCheckedChange={setReportAlert} />
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Critical Risk Alert — degradation exceeds 75%</span>
-              <Switch checked={criticalAlert} onCheckedChange={setCriticalAlert} />
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">System Status Alerts</span>
-              <Switch checked={statusAlert} onCheckedChange={setStatusAlert} />
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Email Notifications</span>
-              <Switch checked={emailNotif} onCheckedChange={setEmailNotif} />
-            </div>
-            {emailNotif && (
-              <div className="space-y-1.5">
-                <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Email Address</label>
-                <Input placeholder="operator@orbitsec.co" value={email} onChange={(e) => setEmail(e.target.value)} />
-              </div>
-            )}
-          </div>
-        </Panel>
-
-        {/* Panel 4 — Data Management */}
+        {/* Data Management */}
         <Panel title="Data Management">
           <div className="p-5 space-y-4">
             <div className="flex items-center justify-between panel-2 px-3 py-2.5">
               <div>
                 <div className="text-sm">Saved Configurations</div>
-                <div className="text-[11px] font-mono text-muted-foreground">5 saved</div>
+                <div className="text-[11px] font-mono text-muted-foreground">
+                  {configsLoading ? "Loading..." : `${configs.length} saved`}
+                </div>
               </div>
-              <button className="px-3 py-1.5 text-xs font-mono uppercase border border-destructive text-destructive rounded hover:bg-destructive/10 transition-colors">
-                Clear All Configurations
+              <button
+                onClick={clearAllConfigs}
+                disabled={configsLoading || clearingConfigs || configs.length === 0}
+                className="px-3 py-1.5 text-xs font-mono uppercase border border-destructive text-destructive rounded hover:bg-destructive/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {clearingConfigs ? "Clearing..." : "Clear All Configurations"}
               </button>
             </div>
-            <div className="flex items-center justify-between panel-2 px-3 py-2.5">
+
+            <div className="panel-2 px-3 py-2.5 space-y-2.5">
               <div>
                 <div className="text-sm">Simulation History</div>
-                <div className="text-[11px] font-mono text-muted-foreground">412 simulations</div>
+                <div className="text-[11px] font-mono text-muted-foreground">
+                  {reportsLoading ? "Loading..." : `${reports.length} assessments`}
+                </div>
               </div>
-              <button className="px-3 py-1.5 text-xs font-mono uppercase border border-cyan text-cyan rounded hover:bg-cyan/10 transition-colors">
-                Export All Reports
-              </button>
-            </div>
-            <div className="flex items-center justify-between panel-2 px-3 py-2.5">
-              <div>
-                <div className="text-sm">Clear Simulation History</div>
-                <div className="text-[11px] font-mono text-destructive">This action cannot be undone</div>
-              </div>
-              <button className="px-3 py-1.5 text-xs font-mono uppercase border border-destructive text-destructive rounded hover:bg-destructive/10 transition-colors">
-                Clear History
-              </button>
-            </div>
-            <div className="flex items-center justify-between panel-2 px-3 py-2.5">
-              <div>
-                <div className="text-sm">Cache Status</div>
-                <div className="text-[11px] font-mono text-muted-foreground">TLE Cache: Fresh · Last updated 14:32 UTC</div>
-              </div>
-              <button className="px-3 py-1.5 text-xs font-mono uppercase border border-cyan text-cyan rounded hover:bg-cyan/10 transition-colors">
-                Refresh TLE Cache
-              </button>
-            </div>
-            <div className="flex items-center justify-between panel-2 px-3 py-2.5">
-              <div>
-                <div className="text-sm">API Connection</div>
-                <div className="text-[11px] font-mono text-muted-foreground">api.orbitsec.co/v2</div>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs font-mono text-success">
-                <span className="h-1.5 w-1.5 rounded-full bg-success pulse-dot" />
-                ONLINE
+              <div className="flex gap-2">
+                <button
+                  onClick={exportHistory}
+                  disabled={reportsLoading || reports.length === 0}
+                  className="px-3 py-1.5 text-xs font-mono uppercase border border-cyan text-cyan rounded hover:bg-cyan/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Export All History (JSON)
+                </button>
+                <button
+                  onClick={clearHistory}
+                  disabled={reportsLoading || clearingReports || reports.length === 0}
+                  className="px-3 py-1.5 text-xs font-mono uppercase border border-destructive text-destructive rounded hover:bg-destructive/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {clearingReports ? "Clearing..." : "Clear History"}
+                </button>
               </div>
             </div>
           </div>
         </Panel>
-      </div>
 
-      <div className="mt-4">
-        <button className="w-full py-2.5 text-sm font-mono uppercase tracking-wider bg-gradient-to-r from-cyan to-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity">
-          Save Settings
-        </button>
+        {/* System */}
+        <Panel title="System">
+          <div className="p-5 space-y-4">
+            <div className="flex items-center justify-between panel-2 px-3 py-2.5">
+              <div className="min-w-0">
+                <div className="text-sm">API Connection</div>
+                <div className="text-[11px] font-mono text-muted-foreground truncate">
+                  {baseURL}
+                </div>
+                {health.status === "online" && health.timestamp && (
+                  <div className="text-[11px] font-mono text-muted-foreground">
+                    Last response: {health.timestamp}
+                  </div>
+                )}
+                {health.status === "offline" && health.error && (
+                  <div className="text-[11px] font-mono text-destructive">
+                    {health.error}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                {health.status === "checking" && (
+                  <div className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
+                    <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
+                    CHECKING
+                  </div>
+                )}
+                {health.status === "online" && (
+                  <div className="flex items-center gap-1.5 text-xs font-mono text-success">
+                    <span className="h-1.5 w-1.5 rounded-full bg-success pulse-dot" />
+                    ONLINE
+                  </div>
+                )}
+                {health.status === "offline" && (
+                  <div className="flex items-center gap-1.5 text-xs font-mono text-destructive">
+                    <span className="h-1.5 w-1.5 rounded-full bg-destructive" />
+                    OFFLINE
+                  </div>
+                )}
+                <button
+                  onClick={pingHealth}
+                  disabled={health.status === "checking"}
+                  className="px-3 py-1.5 text-xs font-mono uppercase border border-cyan text-cyan rounded hover:bg-cyan/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Re-check
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between panel-2 px-3 py-2.5">
+              <div>
+                <div className="text-sm">Account</div>
+                <div className="text-[11px] font-mono text-muted-foreground">
+                  Authenticated session
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="px-3 py-1.5 text-xs font-mono uppercase border border-destructive text-destructive rounded hover:bg-destructive/10 transition-colors"
+              >
+                Log Out
+              </button>
+            </div>
+          </div>
+        </Panel>
       </div>
     </AppShell>
   );
