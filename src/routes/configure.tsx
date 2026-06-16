@@ -763,6 +763,28 @@ function Configure() {
     }
   };
 
+  const handleTargetSelect = async (target: { name: string; norad_id: number }) => {
+    setLoadingTarget(target.name);
+    try {
+      const res = await apiFetch(`/api/satellite/${target.norad_id}/orbital_params`);
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      setForm((f) => ({
+        ...f,
+        altitude: typeof data.altitude_km === "number" ? Math.round(data.altitude_km * 100) / 100 : f.altitude,
+        inclination: typeof data.inclination_deg === "number" ? Math.round(data.inclination_deg * 10) / 10 : f.inclination,
+        orbit_type: typeof data.orbit_type === "string" ? data.orbit_type : f.orbit_type,
+        norad_id: target.norad_id,
+      }));
+      setSelectedTarget(target.name);
+      toast.success(`Loaded orbital data: ${data.tle_name ?? target.name}`);
+    } catch {
+      toast.error("Failed to fetch orbital data");
+    } finally {
+      setLoadingTarget(null);
+    }
+  };
+
   const adcs = form.adcs;
   const eps = form.eps;
   const comms = form.comms;
