@@ -1,5 +1,6 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
+import { logout } from "@/lib/api";
 
 const NAV = [
   { to: "/", label: "Dashboard" },
