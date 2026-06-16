@@ -233,7 +233,11 @@ function Attack() {
           {/* Target asset */}
           <Panel title="Target Asset" action={<Link to="/configure" className="text-[10px] font-mono uppercase tracking-wider text-primary hover:underline">Configure →</Link>}>
             <div className="p-4 flex gap-2 flex-wrap">
-              {SATS.map((s) => (
+              {configsLoading && <div className="text-[11px] font-mono text-muted-foreground">Loading targets…</div>}
+              {!configsLoading && Object.keys(configs).length === 0 && (
+                <div className="text-[11px] font-mono text-muted-foreground">No saved configurations. <Link to="/configure" className="text-primary hover:underline">Create one →</Link></div>
+              )}
+              {Object.keys(configs).map((s) => (
                 <button key={s} onClick={() => setSat(s)}
                   className={`px-3 py-1.5 rounded-md text-xs font-mono border transition-colors ${
                     sat === s ? "bg-primary/15 border-primary text-primary text-glow" : "panel-2 text-muted-foreground hover:text-foreground"
