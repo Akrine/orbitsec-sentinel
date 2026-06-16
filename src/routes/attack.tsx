@@ -199,6 +199,22 @@ function Attack() {
       setResult(data);
       setCompletedAt(new Date());
       toast.success("Simulation complete");
+      if (sa) {
+        try {
+          const sRes = await apiFetch("/api/simulate/sensitivity", {
+            method: "POST",
+            body: JSON.stringify(body),
+          });
+          if (sRes.ok) {
+            const sData = await sRes.json().catch(() => ({}));
+            if (sData?.sensitivity_ranking) {
+              setResult((prev: any) => prev ? { ...prev, sensitivity_ranking: sData.sensitivity_ranking } : prev);
+            }
+          }
+        } catch {
+          // ignore — sensitivity is optional
+        }
+      }
     } catch (e: any) {
       setError(e?.message ?? "Simulation failed");
       toast.error(e?.message ?? "Simulation failed");
