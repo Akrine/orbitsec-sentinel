@@ -88,9 +88,8 @@ function Check({ checked, onChange, label }: { checked: boolean; onChange: (v: b
 }
 
 function Attack() {
-  const [configs, setConfigs] = useState<Record<string, any>>({});
-  const [configsLoading, setConfigsLoading] = useState(true);
-  const [sat, setSat] = useState<string>("");
+  const { activeName, activeConfig } = useActiveSatellite();
+  const hasActive = !!activeConfig && Object.keys(activeConfig).length > 0;
 
   const [attack, setAttack] = useState<AttackId>("ai-gnss");
   const [actor, setActor] = useState("apt");
@@ -130,26 +129,6 @@ function Attack() {
 
   const activeAttack = useMemo(() => LIVE.find((l) => l.id === attack)!, [attack]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await apiFetch("/api/configs");
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = (await res.json()) as { name: string; created_at: string; config: any }[];
-        if (cancelled) return;
-        const map: Record<string, any> = {};
-        for (const c of data) map[c.name] = c.config;
-        setConfigs(map);
-        if (data.length > 0) setSat(data[0].name);
-      } catch (e) {
-        if (!cancelled) toast.error("Failed to load target assets");
-      } finally {
-        if (!cancelled) setConfigsLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
 
   function buildAttackParams(): Record<string, any> {
     switch (attack) {
