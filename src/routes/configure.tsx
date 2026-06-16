@@ -1309,7 +1309,6 @@ function Configure() {
             <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md panel-2 text-sm hover:border-primary/40">
               Import TLE / JSON
             </button>
-}
           </div>
         </div>
       </div>
