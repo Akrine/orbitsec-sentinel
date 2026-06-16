@@ -143,11 +143,14 @@ type FormState = {
   mission_type: string;
   altitude: number;
   inclination: number;
+  orbit_type: string;
+  norad_id: number;
   adcs: {
     pointing_accuracy: number;
     reaction_wheels: number;
     star_trackers: number;
     st_accuracy: number;
+    has_gyroscopes: boolean;
     gyroscopes: number;
     gyro_drift: number;
     slew_rate: number;
@@ -246,11 +249,14 @@ const DEFAULTS: FormState = {
   mission_type: "Earth Observation",
   altitude: 400,
   inclination: 51.6,
+  orbit_type: "LEO",
+  norad_id: 0,
   adcs: {
     pointing_accuracy: 0.1,
     reaction_wheels: 4,
     star_trackers: 2,
     st_accuracy: 10,
+    has_gyroscopes: true,
     gyroscopes: 4,
     gyro_drift: 1.0,
     slew_rate: 1.0,
@@ -345,47 +351,308 @@ const DEFAULTS: FormState = {
   },
 };
 
-// safely merge a loaded config into defaults; missing fields keep defaults
+// ---------- enum mappings (display label <-> backend value) ----------
+const MISSION_MAP: Record<string, string> = {
+  "Earth Observation": "earth_observation",
+  "Communications": "communications",
+  "Navigation": "navigation",
+  "Scientific": "scientific",
+};
+const BACKUP_MODE_MAP: Record<string, string> = {
+  "None": "none",
+  "Thruster-Based": "thruster",
+  "Magnetorquer-Based": "magnetorquer",
+};
+const AUTONOMY_MAP: Record<string, string> = {
+  "Low": "low",
+  "Medium": "medium",
+  "High": "high",
+};
+const COMMAND_AUTH_MAP: Record<string, string> = {
+  "None": "none",
+  "Seq Counter": "sequence_counter",
+  "HMAC-SHA256": "hmac",
+  "Digital Sig": "digital_signature",
+};
+const NET_SEG_MAP: Record<string, string> = {
+  "Basic": "basic",
+  "None": "none",
+  "Zero-Trust": "zero_trust",
+};
+const REGION_MAP: Record<string, string> = {
+  "Global Distribution": "global",
+  "North America": "north_america",
+  "Europe": "europe",
+  "Middle East": "middle_east",
+  "Asia Pacific": "asia_pacific",
+};
+
+function toLabel(map: Record<string, string>, backend: unknown, fallback: string): string {
+  if (typeof backend !== "string") return fallback;
+  for (const [label, val] of Object.entries(map)) {
+    if (val === backend) return label;
+  }
+  return fallback;
+}
+
+function pickNum(v: unknown, fallback: number): number {
+  return typeof v === "number" && !Number.isNaN(v) ? v : fallback;
+}
+function pickBool(v: unknown, fallback: boolean): boolean {
+  return typeof v === "boolean" ? v : fallback;
+}
+function pickStr(v: unknown, fallback: string): string {
+  return typeof v === "string" ? v : fallback;
+}
+
+// safely merge a loaded config into defaults using EXACT backend keys
 function mergeConfig(loaded: Record<string, unknown> | undefined | null): FormState {
   const base: FormState = JSON.parse(JSON.stringify(DEFAULTS));
   if (!loaded || typeof loaded !== "object") return base;
   const L = loaded as Record<string, any>;
 
-  if (typeof L.mission_type === "string") {
-    // backend stores snake_case; convert to title-case display value if matches
-    const m = L.mission_type as string;
-    const pretty = m.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-    base.mission_type = pretty;
-  }
-  if (typeof L.altitude === "number") base.altitude = L.altitude;
-  if (typeof L.inclination === "number") base.inclination = L.inclination;
+  // top-level scalars
+  base.mission_type = toLabel(MISSION_MAP, L.mission_type, base.mission_type);
+  base.altitude = pickNum(L.altitude_km, base.altitude);
+  base.inclination = pickNum(L.inclination_deg, base.inclination);
+  base.orbit_type = pickStr(L.orbit_type, base.orbit_type);
+  base.norad_id = pickNum(L.norad_id, base.norad_id);
 
-  const groups: (keyof FormState)[] = [
-    "adcs",
-    "eps",
-    "comms",
-    "thermal",
-    "payload",
-    "ground_segment",
-    "radiation",
-    "financial",
-  ];
-  for (const g of groups) {
-    const src = L[g];
-    if (src && typeof src === "object") {
-      const target = base[g] as Record<string, any>;
-      for (const k of Object.keys(target)) {
-        if (k in src && src[k] !== null && src[k] !== undefined) {
-          if (k === "fallback_chain" && typeof src[k] === "object") {
-            target[k] = { ...target[k], ...src[k] };
-          } else {
-            target[k] = src[k];
-          }
-        }
-      }
-    }
+  // adcs
+  const a = (L.adcs ?? {}) as Record<string, any>;
+  const A = base.adcs;
+  A.pointing_accuracy = pickNum(a.pointing_accuracy_deg, A.pointing_accuracy);
+  A.reaction_wheels = pickNum(a.num_reaction_wheels, A.reaction_wheels);
+  A.star_trackers = pickNum(a.num_star_trackers, A.star_trackers);
+  A.st_accuracy = pickNum(a.star_tracker_accuracy_arcsec, A.st_accuracy);
+  A.has_gyroscopes = pickBool(a.has_gyroscopes, A.has_gyroscopes);
+  A.gyroscopes = pickNum(a.num_gyroscopes, A.gyroscopes);
+  A.gyro_drift = pickNum(a.gyro_drift_deg_per_hour, A.gyro_drift);
+  A.slew_rate = pickNum(a.slew_rate_deg_per_sec, A.slew_rate);
+  A.wheel_momentum = pickNum(a.wheel_max_momentum_nms, A.wheel_momentum);
+  A.sun_sensors = pickNum(a.num_sun_sensors, A.sun_sensors);
+  A.magnetometers = pickNum(a.num_magnetometers, A.magnetometers);
+  A.magnetorquers = pickNum(a.num_magnetorquers, A.magnetorquers);
+  A.has_thrusters = pickBool(a.has_thrusters, A.has_thrusters);
+  A.anomaly_detection = pickBool(a.has_anomaly_detection, A.anomaly_detection);
+  A.backup_mode = toLabel(BACKUP_MODE_MAP, a.backup_adcs_mode, A.backup_mode);
+  A.backup_pointing = pickNum(a.backup_adcs_pointing_deg, A.backup_pointing);
+  A.switchover_time = pickNum(a.backup_adcs_switchover_s, A.switchover_time);
+  A.autonomy = toLabel(AUTONOMY_MAP, a.onboard_autonomy_level, A.autonomy);
+  A.detection_threshold = pickNum(a.anomaly_detection_threshold_s, A.detection_threshold);
+
+  // eps
+  const e = (L.eps ?? {}) as Record<string, any>;
+  const E = base.eps;
+  E.solar_panel_area = pickNum(e.solar_panel_area_m2, E.solar_panel_area);
+  if (typeof e.solar_cell_efficiency === "number") E.cell_efficiency = e.solar_cell_efficiency / 100;
+  E.solar_arrays = pickNum(e.num_solar_arrays, E.solar_arrays);
+  E.battery_wh = pickNum(e.battery_capacity_wh, E.battery_wh);
+  E.battery_cells = pickNum(e.num_battery_cells, E.battery_cells);
+  E.battery_voltage = pickNum(e.battery_voltage_v, E.battery_voltage);
+  E.power_buses = pickNum(e.num_power_buses, E.power_buses);
+  E.nominal_draw = pickNum(e.nominal_power_draw_w, E.nominal_draw);
+  E.peak_draw = pickNum(e.peak_power_draw_w, E.peak_draw);
+  E.redundant_power = pickBool(e.redundant_power_system, E.redundant_power);
+
+  // comms
+  const c = (L.comms ?? {}) as Record<string, any>;
+  const C = base.comms;
+  C.s_antennas = pickNum(c.num_s_band_antennas, C.s_antennas);
+  C.s_gain = pickNum(c.s_band_gain_dbi, C.s_gain);
+  C.s_freq = pickNum(c.s_band_frequency_mhz, C.s_freq);
+  C.s_tx_power = pickNum(c.s_band_transmit_power_w, C.s_tx_power);
+  C.s_data = pickNum(c.s_band_max_data_rate_mbps, C.s_data);
+  C.x_antennas = pickNum(c.num_x_band_antennas, C.x_antennas);
+  C.x_gain = pickNum(c.x_band_gain_dbi, C.x_gain);
+  C.x_freq = pickNum(c.x_band_frequency_mhz, C.x_freq);
+  C.x_tx_power = pickNum(c.x_band_transmit_power_w, C.x_tx_power);
+  C.x_data = pickNum(c.x_band_max_data_rate_mbps, C.x_data);
+  C.rx_sensitivity = pickNum(c.receiver_sensitivity_dbm, C.rx_sensitivity);
+  C.has_ka = pickBool(c.has_ka_band, C.has_ka);
+  C.encryption = pickStr(c.encryption_strength, C.encryption);
+  C.multi_gnss = pickBool(c.has_multi_gnss, C.multi_gnss);
+  C.spread_spectrum = pickStr(c.spread_spectrum, C.spread_spectrum);
+  C.command_auth = toLabel(COMMAND_AUTH_MAP, c.command_authentication, C.command_auth);
+  C.modulation = pickStr(c.modulation_scheme, C.modulation);
+  C.gps_aj_margin = pickNum(c.gps_anti_jam_db, C.gps_aj_margin);
+  if (Array.isArray(c.freq_fallback_chain)) {
+    const arr = c.freq_fallback_chain as string[];
+    C.fallback_chain = {
+      ka: arr.includes("ka_band"),
+      x: arr.includes("x_band"),
+      s: arr.includes("s_band"),
+      uhf: arr.includes("uhf"),
+    };
   }
+  if (typeof c.has_uhf === "boolean") {
+    C.fallback_chain.uhf = c.has_uhf;
+  }
+
+  // thermal
+  const t = (L.thermal ?? {}) as Record<string, any>;
+  const T = base.thermal;
+  T.radiator_area = pickNum(t.radiator_area_m2, T.radiator_area);
+  T.emissivity = pickNum(t.radiator_emissivity, T.emissivity);
+  T.heaters = pickNum(t.num_heaters, T.heaters);
+  T.heater_power = pickNum(t.heater_power_w, T.heater_power);
+  T.mli_layers = pickNum(t.mli_layers, T.mli_layers);
+  T.min_op_temp = pickNum(t.min_operating_temp_c, T.min_op_temp);
+  T.max_op_temp = pickNum(t.max_operating_temp_c, T.max_op_temp);
+  T.batt_min_temp = pickNum(t.battery_min_temp_c, T.batt_min_temp);
+  T.batt_max_temp = pickNum(t.battery_max_temp_c, T.batt_max_temp);
+  T.heat_pipes = pickNum(t.num_heat_pipes, T.heat_pipes);
+  T.coating = pickStr(t.thermal_coating, T.coating);
+
+  // payload
+  const p = (L.payload ?? {}) as Record<string, any>;
+  const P = base.payload;
+  P.optical_aperture = pickNum(p.optical_aperture_m, P.optical_aperture);
+  P.focal_length = pickNum(p.optical_focal_length_m, P.focal_length);
+  P.gsd = pickNum(p.ground_sample_distance_m, P.gsd);
+  P.data_rate = pickNum(p.data_rate_gbps, P.data_rate);
+  P.storage = pickNum(p.onboard_storage_gb, P.storage);
+  P.power_draw = pickNum(p.payload_power_w, P.power_draw);
+  P.pointing_req = pickNum(p.pointing_requirement_deg, P.pointing_req);
+
+  // ground_segment
+  const g = (L.ground_segment ?? {}) as Record<string, any>;
+  const G = base.ground_segment;
+  G.ground_stations = pickNum(g.num_ground_stations, G.ground_stations);
+  G.uplink_freq = pickNum(g.uplink_frequency_mhz, G.uplink_freq);
+  G.downlink_freq = pickNum(g.downlink_frequency_mhz, G.downlink_freq);
+  G.antenna_gain = pickNum(g.antenna_gain_dbi, G.antenna_gain);
+  G.ground_tx_power = pickNum(g.ground_tx_power_w, G.ground_tx_power);
+  G.contact_window = pickNum(g.contact_window_min, G.contact_window);
+  G.passes_per_day = pickNum(g.passes_per_day, G.passes_per_day);
+  G.crosslinks = pickBool(g.has_crosslinks, G.crosslinks);
+  G.encryption = pickStr(g.encryption_level, G.encryption);
+  G.net_segmentation = toLabel(NET_SEG_MAP, g.network_segmentation, G.net_segmentation);
+  G.region = toLabel(REGION_MAP, g.ground_station_region, G.region);
+
+  // financial
+  const f = (L.financial ?? {}) as Record<string, any>;
+  const F = base.financial;
+  F.downtime_rate = pickNum(f.hourly_downtime_rate, F.downtime_rate);
+  if (typeof f.asset_value_usd === "number") F.asset_value = f.asset_value_usd / 1_000_000;
+  F.recovery_ops_rate = pickNum(f.recovery_ops_rate, F.recovery_ops_rate);
+
   return base;
+}
+
+// serialize the form into the backend's exact nested structure
+function serializeConfig(form: FormState): Record<string, unknown> {
+  const mission = MISSION_MAP[form.mission_type] ?? form.mission_type.toLowerCase().replace(/\s+/g, "_");
+  const fc: string[] = [];
+  if (form.comms.fallback_chain.ka) fc.push("ka_band");
+  if (form.comms.fallback_chain.x) fc.push("x_band");
+  if (form.comms.fallback_chain.s) fc.push("s_band");
+  if (form.comms.fallback_chain.uhf) fc.push("uhf");
+
+  return {
+    mission_type: mission,
+    altitude_km: form.altitude,
+    inclination_deg: form.inclination,
+    orbit_type: form.orbit_type,
+    norad_id: form.norad_id,
+    adcs: {
+      pointing_accuracy_deg: form.adcs.pointing_accuracy,
+      num_reaction_wheels: form.adcs.reaction_wheels,
+      num_star_trackers: form.adcs.star_trackers,
+      star_tracker_accuracy_arcsec: form.adcs.st_accuracy,
+      has_gyroscopes: form.adcs.has_gyroscopes,
+      num_gyroscopes: form.adcs.gyroscopes,
+      gyro_drift_deg_per_hour: form.adcs.gyro_drift,
+      slew_rate_deg_per_sec: form.adcs.slew_rate,
+      wheel_max_momentum_nms: form.adcs.wheel_momentum,
+      num_sun_sensors: form.adcs.sun_sensors,
+      num_magnetometers: form.adcs.magnetometers,
+      num_magnetorquers: form.adcs.magnetorquers,
+      has_thrusters: form.adcs.has_thrusters,
+      has_anomaly_detection: form.adcs.anomaly_detection,
+      backup_adcs_mode: BACKUP_MODE_MAP[form.adcs.backup_mode] ?? "none",
+      backup_adcs_pointing_deg: form.adcs.backup_pointing,
+      backup_adcs_switchover_s: form.adcs.switchover_time,
+      onboard_autonomy_level: AUTONOMY_MAP[form.adcs.autonomy] ?? "low",
+      anomaly_detection_threshold_s: form.adcs.detection_threshold,
+    },
+    eps: {
+      solar_panel_area_m2: form.eps.solar_panel_area,
+      solar_cell_efficiency: form.eps.cell_efficiency * 100,
+      num_solar_arrays: form.eps.solar_arrays,
+      battery_capacity_wh: form.eps.battery_wh,
+      num_battery_cells: form.eps.battery_cells,
+      battery_voltage_v: form.eps.battery_voltage,
+      num_power_buses: form.eps.power_buses,
+      nominal_power_draw_w: form.eps.nominal_draw,
+      peak_power_draw_w: form.eps.peak_draw,
+      redundant_power_system: form.eps.redundant_power,
+    },
+    comms: {
+      num_s_band_antennas: form.comms.s_antennas,
+      s_band_gain_dbi: form.comms.s_gain,
+      s_band_frequency_mhz: form.comms.s_freq,
+      s_band_transmit_power_w: form.comms.s_tx_power,
+      s_band_max_data_rate_mbps: form.comms.s_data,
+      num_x_band_antennas: form.comms.x_antennas,
+      x_band_gain_dbi: form.comms.x_gain,
+      x_band_frequency_mhz: form.comms.x_freq,
+      x_band_transmit_power_w: form.comms.x_tx_power,
+      x_band_max_data_rate_mbps: form.comms.x_data,
+      receiver_sensitivity_dbm: form.comms.rx_sensitivity,
+      has_ka_band: form.comms.has_ka,
+      encryption_strength: form.comms.encryption,
+      has_multi_gnss: form.comms.multi_gnss,
+      spread_spectrum: form.comms.spread_spectrum,
+      command_authentication: COMMAND_AUTH_MAP[form.comms.command_auth] ?? "none",
+      modulation_scheme: form.comms.modulation,
+      gps_anti_jam_db: form.comms.gps_aj_margin,
+      freq_fallback_chain: fc,
+      has_uhf: form.comms.fallback_chain.uhf,
+    },
+    thermal: {
+      radiator_area_m2: form.thermal.radiator_area,
+      radiator_emissivity: form.thermal.emissivity,
+      num_heaters: form.thermal.heaters,
+      heater_power_w: form.thermal.heater_power,
+      mli_layers: form.thermal.mli_layers,
+      min_operating_temp_c: form.thermal.min_op_temp,
+      max_operating_temp_c: form.thermal.max_op_temp,
+      battery_min_temp_c: form.thermal.batt_min_temp,
+      battery_max_temp_c: form.thermal.batt_max_temp,
+      num_heat_pipes: form.thermal.heat_pipes,
+      has_heat_pipes: form.thermal.heat_pipes > 0,
+      thermal_coating: form.thermal.coating,
+    },
+    payload: {
+      payload_type: mission,
+      optical_aperture_m: form.payload.optical_aperture,
+      optical_focal_length_m: form.payload.focal_length,
+      ground_sample_distance_m: form.payload.gsd,
+      data_rate_gbps: form.payload.data_rate,
+      onboard_storage_gb: form.payload.storage,
+      payload_power_w: form.payload.power_draw,
+      pointing_requirement_deg: form.payload.pointing_req,
+    },
+    ground_segment: {
+      num_ground_stations: form.ground_segment.ground_stations,
+      uplink_frequency_mhz: form.ground_segment.uplink_freq,
+      downlink_frequency_mhz: form.ground_segment.downlink_freq,
+      antenna_gain_dbi: form.ground_segment.antenna_gain,
+      ground_tx_power_w: form.ground_segment.ground_tx_power,
+      contact_window_min: form.ground_segment.contact_window,
+      passes_per_day: form.ground_segment.passes_per_day,
+      has_crosslinks: form.ground_segment.crosslinks,
+      encryption_level: form.ground_segment.encryption,
+      network_segmentation: NET_SEG_MAP[form.ground_segment.net_segmentation] ?? "basic",
+      ground_station_region: REGION_MAP[form.ground_segment.region] ?? "global",
+    },
+    financial: {
+      hourly_downtime_rate: form.financial.downtime_rate,
+      asset_value_usd: form.financial.asset_value * 1_000_000,
+      recovery_ops_rate: form.financial.recovery_ops_rate,
+    },
+  };
 }
 
 // ---------- main ----------
@@ -464,10 +731,7 @@ function Configure() {
       toast.error("Enter a config name");
       return;
     }
-    const config = {
-      ...form,
-      mission_type: form.mission_type.toLowerCase().replace(/\s+/g, "_"),
-    };
+    const config = serializeConfig(form);
     setSaving(true);
     try {
       const res = await apiFetch("/api/configs", {
