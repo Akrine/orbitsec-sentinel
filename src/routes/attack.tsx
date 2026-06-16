@@ -630,7 +630,11 @@ function Attack() {
                     return (
                       <div>
                         <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-cyan mb-2">
-                          Uncertainty Bounds ({ub.num_samples ?? "?"} LHS samples)
+                          {(() => {
+                            const n = ub.num_samples ?? ub.samples;
+                            if (n != null) return `Uncertainty Bounds (${n} LHS samples)`;
+                            return "Uncertainty Bounds (LHS samples)";
+                          })()}
                         </div>
                         <div className="panel-2 overflow-hidden">
                           <div className="grid grid-cols-4 text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground border-b border-border px-3 py-1.5">
