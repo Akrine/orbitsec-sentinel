@@ -295,15 +295,49 @@ function Adversary() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <button
-              disabled
-              className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md text-white font-display font-bold tracking-wider opacity-50 cursor-not-allowed"
+              onClick={() => {
+                if (!result?.pdf_b64) return;
+                const ts = new Date().toISOString().replace(/[:.]/g, "-");
+                const filename = `orbitsec_agentic_adversary_${ts}.pdf`;
+                const byteChars = atob(result.pdf_b64);
+                const byteNums = new Array(byteChars.length);
+                for (let i = 0; i < byteChars.length; i++) {
+                  byteNums[i] = byteChars.charCodeAt(i);
+                }
+                const bytes = new Uint8Array(byteNums);
+                const blob = new Blob([bytes], { type: "application/pdf" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+              }}
+              disabled={!result?.pdf_b64}
+              className={`inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md text-white font-display font-bold tracking-wider ${result?.pdf_b64 ? "hover:brightness-110 cursor-pointer" : "opacity-50 cursor-not-allowed"}`}
               style={{ background: "linear-gradient(135deg, #6a1b9a 0%, #4a148c 100%)" }}
             >
               DOWNLOAD ADVERSARY REPORT PDF
             </button>
             <button
-              disabled
-              className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md panel font-display font-semibold tracking-wider opacity-50 cursor-not-allowed"
+              onClick={() => {
+                if (!result) return;
+                const ts = new Date().toISOString().replace(/[:.]/g, "-");
+                const filename = `orbitsec_adversary_${ts}.json`;
+                const blob = new Blob([JSON.stringify(result, null, 2)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+              }}
+              disabled={!result}
+              className={`inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md panel font-display font-semibold tracking-wider ${result ? "hover:brightness-110 cursor-pointer" : "opacity-50 cursor-not-allowed"}`}
             >
               EXPORT JSON / SPARTA
             </button>
