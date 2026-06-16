@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
+import { apiFetch } from "@/lib/api";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/reports")({
   head: () => ({
@@ -12,41 +14,75 @@ export const Route = createFileRoute("/reports")({
   component: Reports,
 });
 
-type Row = {
+type Report = {
   id: string;
-  sat: string;
-  attack: string;
-  actor: string;
-  path: string;
-  date: string;
-  deg: number;
-  risk: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
-  cost: string;
+  simulation_id?: string;
+  target_satellite?: string;
+  attack_type?: string;
+  mission_degradation_percent?: number;
+  recovery_time_hours?: number;
+  success?: boolean;
+  created_at?: string;
+  attack_parameters?: Record<string, any> | null;
+  impact_summary?: Record<string, any> | null;
 };
 
-const ROWS: Row[] = [
-  { id: "OSIM-44219", sat: "Sentinel-1A",  attack: "AI-Adaptive GNSS Spoofing", actor: "Nation-State",      path: "RF · ML",                       date: "2026-06-11 14:22 UTC", deg: 84.2, risk: "CRITICAL", cost: "$1.06M" },
-  { id: "OSIM-44218", sat: "SBIRS-GEO-5",  attack: "Command Injection",         actor: "Nation-State",      path: "C&DH",                          date: "2026-06-11 12:08 UTC", deg: 71.0, risk: "CRITICAL", cost: "$892K"  },
-  { id: "OSIM-44217", sat: "WorldView-3",  attack: "RF Jamming",                actor: "Sophisticated APT", path: "RF · X-band",                   date: "2026-06-11 09:41 UTC", deg: 58.3, risk: "HIGH",     cost: "$634K"  },
-  { id: "OSIM-44216", sat: "GOES-18",      attack: "Ground Station Compromise", actor: "Insider Threat",    path: "Network Intrusion",             date: "2026-06-10 23:15 UTC", deg: 47.1, risk: "HIGH",     cost: "$412K"  },
-  { id: "OSIM-44215", sat: "WGS-10",       attack: "GPS Spoofing",              actor: "Nation-State",      path: "RF · L1/L2",                    date: "2026-06-10 18:50 UTC", deg: 33.4, risk: "MEDIUM",   cost: "$276K"  },
-  { id: "OSIM-44214", sat: "Sentinel-1A",  attack: "RF Jamming",                actor: "Sophisticated APT", path: "RF · X-band",                   date: "2026-06-10 11:02 UTC", deg: 22.1, risk: "LOW",      cost: "$184K"  },
-  { id: "OSIM-44213", sat: "SBIRS-GEO-5",  attack: "Ground Station Compromise", actor: "Nation-State",      path: "Terminal Firmware Exploitation", date: "2026-06-09 16:44 UTC", deg: 79.8, risk: "CRITICAL", cost: "$1.24M" },
-  { id: "OSIM-44212", sat: "WorldView-3",  attack: "AI-Adaptive GNSS Spoofing", actor: "Nation-State",      path: "RF · ML",                       date: "2026-06-09 11:20 UTC", deg: 66.7, risk: "CRITICAL", cost: "$748K"  },
-  { id: "OSIM-44211", sat: "GOES-18",      attack: "Command Injection",         actor: "Sophisticated APT", path: "C&DH",                          date: "2026-06-08 22:15 UTC", deg: 44.2, risk: "HIGH",     cost: "$389K"  },
-  { id: "OSIM-44210", sat: "WGS-10",       attack: "RF Jamming",                actor: "Insider Threat",    path: "RF · X-band",                   date: "2026-06-08 14:33 UTC", deg: 38.9, risk: "MEDIUM",   cost: "$312K"  },
-  { id: "OSIM-44209", sat: "Sentinel-1A",  attack: "GPS Spoofing",              actor: "Sophisticated APT", path: "RF · L1/L2",                    date: "2026-06-07 09:18 UTC", deg: 29.4, risk: "MEDIUM",   cost: "$241K"  },
-  { id: "OSIM-44208", sat: "SBIRS-GEO-5",  attack: "Command Injection",         actor: "Insider Threat",    path: "C&DH",                          date: "2026-06-06 18:45 UTC", deg: 52.6, risk: "HIGH",     cost: "$521K"  },
-];
+type Risk = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
 
-const ATTACKS = ["GPS Spoofing", "RF Jamming", "Command Injection", "Ground Station Compromise", "AI-Adaptive GNSS Spoofing"];
-const ACTORS = ["Nation-State", "Sophisticated APT", "Insider Threat"];
+const PAGE_SIZE = 20;
 
 function degColor(d: number) {
   if (d > 70) return "text-critical";
   if (d > 50) return "text-high";
   if (d > 30) return "text-medium";
   return "text-low";
+}
+
+function riskOf(d: number): Risk {
+  if (d > 70) return "CRITICAL";
+  if (d > 50) return "HIGH";
+  if (d > 30) return "MEDIUM";
+  return "LOW";
+}
+
+function titleCase(s: string) {
+  return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatAttack(raw: string | undefined) {
+  if (!raw) return "—";
+  if (raw.includes(":")) {
+    const [prefix, rest] = raw.split(":", 2);
+    return `${titleCase(prefix)}: ${titleCase(rest || "")}`;
+  }
+  return titleCase(raw);
+}
+
+function formatDate(iso: string | undefined) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mi = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi} UTC`;
+}
+
+function formatCost(impact: Record<string, any> | null | undefined): string {
+  if (!impact) return "—";
+  const raw = impact.estimated_cost_usd ?? impact.total_estimated_cost_usd ?? impact.total_cost_usd;
+  if (raw == null || Number.isNaN(Number(raw))) return "—";
+  const n = Number(raw);
+  if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
+  if (n >= 1e3) return `$${Math.round(n / 1e3)}K`;
+  return `$${Math.round(n)}`;
+}
+
+function recordTypeOf(r: Report): string {
+  const t = r.attack_parameters?.record_type;
+  return typeof t === "string" ? t : "attack";
 }
 
 function StatTile({ label, value, tone }: { label: string; value: string; tone: "default" | "critical" | "high" | "primary" }) {
@@ -64,31 +100,118 @@ function StatTile({ label, value, tone }: { label: string; value: string; tone: 
 }
 
 function Reports() {
+  const [reports, setReports] = useState<Report[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
   const [risk, setRisk] = useState("All");
   const [attack, setAttack] = useState("All");
   const [actor, setActor] = useState("All");
-  const [range, setRange] = useState("Last 30 days");
+  const [recordType, setRecordType] = useState("All");
+  const [range, setRange] = useState("All Time");
+  const [page, setPage] = useState(1);
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await apiFetch("/api/reports?limit=500");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setReports(Array.isArray(data) ? data : []);
+    } catch (e: any) {
+      setError(e?.message || "Failed to load reports");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const attackOptions = useMemo(() => {
+    const s = new Set<string>();
+    reports.forEach((r) => r.attack_type && s.add(r.attack_type));
+    return Array.from(s).sort();
+  }, [reports]);
+
+  const actorOptions = useMemo(() => {
+    const s = new Set<string>();
+    reports.forEach((r) => {
+      const a = r.attack_parameters?.threat_actor_profile;
+      if (typeof a === "string" && a) s.add(a);
+    });
+    return Array.from(s).sort();
+  }, [reports]);
+
+  const rangeCutoff = useMemo(() => {
+    const now = Date.now();
+    if (range === "Last 7 days") return now - 7 * 86400_000;
+    if (range === "Last 30 days") return now - 30 * 86400_000;
+    if (range === "Last 90 days") return now - 90 * 86400_000;
+    return 0;
+  }, [range]);
 
   const filtered = useMemo(() => {
-    return ROWS.filter((r) => {
-      if (risk !== "All" && r.risk !== risk) return false;
-      if (attack !== "All" && r.attack !== attack) return false;
-      if (actor !== "All" && r.actor !== actor) return false;
+    return reports.filter((r) => {
+      const deg = r.mission_degradation_percent ?? 0;
+      const rk = riskOf(deg);
+      if (risk !== "All" && rk !== risk) return false;
+      if (attack !== "All" && r.attack_type !== attack) return false;
+      const ra = r.attack_parameters?.threat_actor_profile;
+      if (actor !== "All" && ra !== actor) return false;
+      if (recordType !== "All" && recordTypeOf(r) !== recordType) return false;
+      if (rangeCutoff && r.created_at) {
+        const t = new Date(r.created_at).getTime();
+        if (!Number.isNaN(t) && t < rangeCutoff) return false;
+      }
       if (query) {
         const q = query.toLowerCase();
-        if (!`${r.id} ${r.sat} ${r.attack} ${r.actor} ${r.path}`.toLowerCase().includes(q)) return false;
+        const hay = `${r.simulation_id || ""} ${r.id} ${r.target_satellite || ""} ${r.attack_type || ""} ${ra || ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [query, risk, attack, actor]);
+  }, [reports, risk, attack, actor, recordType, rangeCutoff, query]);
 
-  const allSelected = filtered.length > 0 && filtered.every((r) => selected.has(r.id));
+  useEffect(() => { setPage(1); }, [query, risk, attack, actor, recordType, range]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const stats = useMemo(() => {
+    const total = reports.length;
+    let critical = 0;
+    let degSum = 0;
+    let degCount = 0;
+    let weekCount = 0;
+    const weekCutoff = Date.now() - 7 * 86400_000;
+    reports.forEach((r) => {
+      const deg = r.mission_degradation_percent;
+      if (typeof deg === "number") {
+        degSum += deg;
+        degCount += 1;
+        if (riskOf(deg) === "CRITICAL") critical += 1;
+      }
+      if (r.created_at) {
+        const t = new Date(r.created_at).getTime();
+        if (!Number.isNaN(t) && t >= weekCutoff) weekCount += 1;
+      }
+    });
+    return {
+      total,
+      critical,
+      avgDeg: degCount ? (degSum / degCount).toFixed(1) + "%" : "—",
+      week: weekCount,
+    };
+  }, [reports]);
+
+  const allSelected = pageRows.length > 0 && pageRows.every((r) => selected.has(r.id));
   const toggleAll = () => {
     const next = new Set(selected);
-    if (allSelected) filtered.forEach((r) => next.delete(r.id));
-    else filtered.forEach((r) => next.add(r.id));
+    if (allSelected) pageRows.forEach((r) => next.delete(r.id));
+    else pageRows.forEach((r) => next.add(r.id));
     setSelected(next);
   };
   const toggleOne = (id: string) => {
@@ -98,26 +221,66 @@ function Reports() {
     setSelected(next);
   };
 
+  const deleteSelected = async () => {
+    if (selected.size === 0) return;
+    if (!window.confirm(`Delete ${selected.size} selected report(s)?`)) return;
+    setBusy(true);
+    try {
+      const ids = Array.from(selected);
+      const results = await Promise.allSettled(
+        ids.map((id) => apiFetch(`/api/reports/${id}`, { method: "DELETE" })),
+      );
+      const failed = results.filter((r) => r.status === "rejected" || (r.status === "fulfilled" && !r.value.ok)).length;
+      if (failed) toast.error(`${failed} deletion(s) failed`);
+      else toast.success(`Deleted ${ids.length} report(s)`);
+      setSelected(new Set());
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const clearAll = async () => {
+    if (!window.confirm("Delete ALL reports? This cannot be undone.")) return;
+    setBusy(true);
+    try {
+      const res = await apiFetch(`/api/reports`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      toast.success("All reports deleted");
+      setSelected(new Set());
+      await load();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to clear reports");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const showingFrom = filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const showingTo = Math.min(page * PAGE_SIZE, filtered.length);
+
   return (
     <AppShell
       title="Reports Library"
       subtitle="ASSESSMENT ARCHIVE · ALL MISSIONS"
       actions={
-        <button className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-primary/50 text-primary text-xs font-semibold hover:bg-primary/10">
-          Bulk Export
+        <button
+          onClick={clearAll}
+          disabled={busy || reports.length === 0}
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-destructive/50 text-destructive text-xs font-semibold hover:bg-destructive/10 disabled:opacity-50"
+        >
+          Clear All
         </button>
       }
     >
-      {/* Top stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <StatTile label="Total Reports"      value="412"   tone="default" />
-        <StatTile label="Critical Risk"      value="89"    tone="critical" />
-        <StatTile label="Avg Degradation"    value="62.4%" tone="high" />
-        <StatTile label="Reports This Week"  value="18"    tone="primary" />
+        <StatTile label="Total Reports"      value={String(stats.total)}    tone="default" />
+        <StatTile label="Critical Risk"      value={String(stats.critical)} tone="critical" />
+        <StatTile label="Avg Degradation"    value={stats.avgDeg}           tone="high" />
+        <StatTile label="Reports This Week"  value={String(stats.week)}     tone="primary" />
       </div>
 
       <Panel>
-        {/* Search + Filters */}
         <div className="p-4 flex flex-wrap items-center gap-2 border-b border-border">
           <div className="flex items-center gap-2 panel-2 px-2.5 py-1.5 text-xs flex-1 min-w-[280px] bg-surface-2 border border-border rounded">
             <input
@@ -132,10 +295,17 @@ function Reports() {
               <option>All</option><option>CRITICAL</option><option>HIGH</option><option>MEDIUM</option><option>LOW</option>
             </select>
             <select value={attack} onChange={(e) => setAttack(e.target.value)} className="px-2.5 py-1.5 text-xs font-mono bg-surface-2 border border-border rounded">
-              <option>All</option>{ATTACKS.map((a) => <option key={a}>{a}</option>)}
+              <option>All</option>{attackOptions.map((a) => <option key={a} value={a}>{formatAttack(a)}</option>)}
             </select>
             <select value={actor} onChange={(e) => setActor(e.target.value)} className="px-2.5 py-1.5 text-xs font-mono bg-surface-2 border border-border rounded">
-              <option>All</option>{ACTORS.map((a) => <option key={a}>{a}</option>)}
+              <option>All</option>{actorOptions.map((a) => <option key={a} value={a}>{titleCase(a)}</option>)}
+            </select>
+            <select value={recordType} onChange={(e) => setRecordType(e.target.value)} className="px-2.5 py-1.5 text-xs font-mono bg-surface-2 border border-border rounded">
+              <option value="All">All Types</option>
+              <option value="attack">Attack</option>
+              <option value="scenario">Scenario</option>
+              <option value="adversary">Adversary</option>
+              <option value="constellation">Constellation</option>
             </select>
             <select value={range} onChange={(e) => setRange(e.target.value)} className="px-2.5 py-1.5 text-xs font-mono bg-surface-2 border border-border rounded">
               <option>Last 7 days</option><option>Last 30 days</option><option>Last 90 days</option><option>All Time</option>
@@ -143,22 +313,21 @@ function Reports() {
           </div>
         </div>
 
-        {/* Bulk actions */}
         {selected.size > 0 && (
           <div className="px-4 py-2.5 border-b border-border bg-primary/5 flex items-center justify-between text-xs font-mono">
             <span className="text-primary">{selected.size} report{selected.size === 1 ? "" : "s"} selected</span>
             <div className="flex items-center gap-2">
-              <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded border border-primary/50 text-primary hover:bg-primary/10">
-                Export Selected PDF
-              </button>
-              <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded border border-destructive/50 text-destructive hover:bg-destructive/10">
+              <button
+                onClick={deleteSelected}
+                disabled={busy}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded border border-destructive/50 text-destructive hover:bg-destructive/10 disabled:opacity-50"
+              >
                 Delete Selected
               </button>
             </div>
           </div>
         )}
 
-        {/* Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -169,53 +338,68 @@ function Reports() {
                 <th className="text-left font-medium px-4 py-2.5">Report ID</th>
                 <th className="text-left font-medium px-4 py-2.5">Satellite</th>
                 <th className="text-left font-medium px-4 py-2.5">Attack Type</th>
+                <th className="text-left font-medium px-4 py-2.5">Type</th>
                 <th className="text-left font-medium px-4 py-2.5">Threat Actor</th>
-                <th className="text-left font-medium px-4 py-2.5">Attack Path</th>
                 <th className="text-left font-medium px-4 py-2.5">Date</th>
                 <th className="text-right font-medium px-4 py-2.5">Degradation</th>
                 <th className="text-left font-medium px-4 py-2.5">Risk</th>
                 <th className="text-right font-medium px-4 py-2.5">Op. Cost</th>
-                <th className="text-right font-medium px-4 py-2.5">Download</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r) => (
-                <tr key={r.id} className="border-b border-border/60 hover:bg-surface-2/60 transition-colors">
-                  <td className="px-4 py-3">
-                    <input type="checkbox" className="accent-primary" checked={selected.has(r.id)} onChange={() => toggleOne(r.id)} />
-                  </td>
-                  <td className="px-4 py-3 font-mono text-[12px] text-primary">{r.id}</td>
-                  <td className="px-4 py-3 font-mono text-[13px]">{r.sat}</td>
-                  <td className="px-4 py-3">{r.attack}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{r.actor}</td>
-                  <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground">{r.path}</td>
-                  <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground">{r.date}</td>
-                  <td className={`px-4 py-3 text-right font-mono ${degColor(r.deg)}`}>{r.deg.toFixed(1)}%</td>
-                  <td className="px-4 py-3"><StatusBadge level={r.risk as any} /></td>
-                  <td className="px-4 py-3 text-right font-mono">{r.cost}</td>
-                  <td className="px-4 py-3 text-right">
-                    <button className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-mono rounded border border-primary/40 text-primary hover:bg-primary/10">
-                      PDF
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr><td colSpan={11} className="px-4 py-8 text-center text-muted-foreground text-xs font-mono">No reports match the current filters.</td></tr>
+              {loading && (
+                <tr><td colSpan={10} className="px-4 py-8 text-center text-muted-foreground text-xs font-mono">Loading reports...</td></tr>
+              )}
+              {!loading && error && (
+                <tr><td colSpan={10} className="px-4 py-8 text-center text-destructive text-xs font-mono">{error}</td></tr>
+              )}
+              {!loading && !error && pageRows.map((r) => {
+                const deg = r.mission_degradation_percent ?? 0;
+                const rk = riskOf(deg);
+                const rt = recordTypeOf(r);
+                const ra = r.attack_parameters?.threat_actor_profile;
+                return (
+                  <tr key={r.id} className="border-b border-border/60 hover:bg-surface-2/60 transition-colors">
+                    <td className="px-4 py-3">
+                      <input type="checkbox" className="accent-primary" checked={selected.has(r.id)} onChange={() => toggleOne(r.id)} />
+                    </td>
+                    <td className="px-4 py-3 font-mono text-[12px] text-primary">{r.simulation_id || r.id}</td>
+                    <td className="px-4 py-3 font-mono text-[13px]">{r.target_satellite || "—"}</td>
+                    <td className="px-4 py-3">{formatAttack(r.attack_type)}</td>
+                    <td className="px-4 py-3">
+                      <span className="inline-block px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider border border-border rounded bg-surface-2 text-muted-foreground">{rt}</span>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{ra ? titleCase(ra) : "—"}</td>
+                    <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground">{formatDate(r.created_at)}</td>
+                    <td className={`px-4 py-3 text-right font-mono ${degColor(deg)}`}>{deg.toFixed(1)}%</td>
+                    <td className="px-4 py-3"><StatusBadge level={rk as any} /></td>
+                    <td className="px-4 py-3 text-right font-mono">{formatCost(r.impact_summary)}</td>
+                  </tr>
+                );
+              })}
+              {!loading && !error && filtered.length === 0 && (
+                <tr><td colSpan={10} className="px-4 py-8 text-center text-muted-foreground text-xs font-mono">No reports match the current filters.</td></tr>
               )}
             </tbody>
           </table>
         </div>
 
-        {/* Pagination */}
         <div className="px-4 py-3 border-t border-border flex items-center justify-between text-[11px] font-mono text-muted-foreground">
-          <span>Showing 1–{filtered.length} of 412 reports</span>
+          <span>Showing {showingFrom}–{showingTo} of {filtered.length} report{filtered.length === 1 ? "" : "s"}</span>
           <div className="flex items-center gap-2">
-            <button className="inline-flex items-center gap-1 px-2 py-1 rounded border border-border hover:bg-surface-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-border hover:bg-surface-2 disabled:opacity-40"
+            >
               Previous
             </button>
-            <span className="px-2">Page 1 of 35</span>
-            <button className="inline-flex items-center gap-1 px-2 py-1 rounded border border-border hover:bg-surface-2">
+            <span className="px-2">Page {page} of {totalPages}</span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-border hover:bg-surface-2 disabled:opacity-40"
+            >
               Next
             </button>
           </div>
