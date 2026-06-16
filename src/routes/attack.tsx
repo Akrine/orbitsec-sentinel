@@ -385,7 +385,7 @@ function Attack() {
 
           {/* Run buttons */}
           <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
-            <button onClick={go} disabled={running || configsLoading || !sat}
+            <button onClick={go} disabled={running || !hasActive}
               className="w-full inline-flex items-center justify-center gap-2 px-5 py-4 rounded-md font-display font-bold tracking-[0.2em] text-primary-foreground shadow-[0_0_40px_-8px_oklch(0.78_0.16_200_/_0.6)] disabled:opacity-60 disabled:cursor-not-allowed"
               style={{ background: "linear-gradient(90deg, oklch(0.65 0.16 200), oklch(0.78 0.16 200))" }}>
               {running ? "RUNNING SIMULATION…" : "RUN ATTACK SIMULATION"}
