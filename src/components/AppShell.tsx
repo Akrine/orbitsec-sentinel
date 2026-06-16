@@ -1,5 +1,6 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
+import { logout } from "@/lib/api";
 
 const NAV = [
   { to: "/", label: "Dashboard" },
@@ -20,6 +21,7 @@ export function AppShell({ children, title, subtitle, actions }: {
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
 
   return (
     <div className="dark min-h-screen flex bg-background text-foreground">
@@ -82,7 +84,10 @@ export function AppShell({ children, title, subtitle, actions }: {
                 <div className="text-xs font-medium truncate">Maj. M. Reyes</div>
                 <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">SOC · L4 Clearance</div>
               </div>
-              <button className="h-7 w-7 flex items-center justify-center rounded hover:bg-sidebar-accent text-muted-foreground">
+              <button
+                onClick={() => { logout(); navigate({ to: "/login" }); }}
+                className="h-7 w-7 flex items-center justify-center rounded hover:bg-sidebar-accent text-muted-foreground"
+              >
                 <span className="text-[10px] font-mono">OUT</span>
               </button>
             </div>
