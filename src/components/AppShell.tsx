@@ -21,6 +21,7 @@ export function AppShell({ children, title, subtitle, actions }: {
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
 
   return (
     <div className="dark min-h-screen flex bg-background text-foreground">
