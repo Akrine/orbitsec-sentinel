@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell, Panel } from "@/components/AppShell";
 import { apiFetch } from "@/lib/api";
+import { useActiveSatellite } from "@/lib/activeSatellite";
 
 export const Route = createFileRoute("/configure")({
   head: () => ({
@@ -840,6 +841,13 @@ function Configure() {
   const [saving, setSaving] = useState(false);
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
   const [loadingTarget, setLoadingTarget] = useState<string | null>(null);
+  const { activeName, setActiveSatellite } = useActiveSatellite();
+
+  // Sync current form to shared active-satellite store on any change
+  useEffect(() => {
+    const name = configName.trim() || selectedTarget || "Custom Satellite";
+    setActiveSatellite(name, serializeConfig(form));
+  }, [form, configName, selectedTarget, setActiveSatellite]);
 
   const loadConfigs = async () => {
     setLoading(true);
@@ -1296,6 +1304,11 @@ function Configure() {
             <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md panel-2 text-sm hover:border-primary/40">
               Import TLE / JSON
             </button>
+            {activeName && (
+              <span className="ml-2 text-[10px] font-mono text-success/90">
+                ✓ Active for simulation: {activeName}
+              </span>
+            )}
           </div>
         </div>
       </div>
