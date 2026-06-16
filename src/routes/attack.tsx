@@ -125,6 +125,7 @@ function Attack() {
   // result
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [completedAt, setCompletedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const activeAttack = useMemo(() => LIVE.find((l) => l.id === attack)!, [attack]);
@@ -196,6 +197,7 @@ function Attack() {
         throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
       }
       setResult(data);
+      setCompletedAt(new Date());
       toast.success("Simulation complete");
     } catch (e: any) {
       setError(e?.message ?? "Simulation failed");
@@ -390,7 +392,7 @@ function Attack() {
               style={{ background: "linear-gradient(90deg, oklch(0.65 0.16 200), oklch(0.78 0.16 200))" }}>
               {running ? "RUNNING SIMULATION…" : "RUN ATTACK SIMULATION"}
             </button>
-            <button onClick={() => { setResult(null); setError(null); }}
+            <button onClick={() => { setResult(null); setError(null); setCompletedAt(null); }}
               className="inline-flex items-center justify-center gap-2 px-5 py-4 rounded-md font-display font-bold tracking-[0.2em] text-critical-foreground"
               style={{ background: "linear-gradient(90deg, oklch(0.55 0.22 22), oklch(0.7 0.24 22))" }}>
               CLEAR RESULTS
@@ -403,58 +405,168 @@ function Attack() {
             </Panel>
           )}
 
-          {result && (
-            <Panel title="Simulation Result" action={<span className="text-[10px] font-mono text-success">COMPLETE</span>}>
-              <div className="p-5 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="panel-2 p-3">
-                    <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground">Mission Degradation</div>
-                    <div className="text-xl font-display font-bold text-critical mt-1">
-                      {result.mission_degradation_percent != null ? `${Number(result.mission_degradation_percent).toFixed(1)}%` : "—"}
-                    </div>
-                  </div>
-                  <div className="panel-2 p-3">
-                    <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground">Estimated Cost</div>
-                    <div className="text-xl font-display font-bold text-high mt-1">
-                      {result.estimated_cost_usd != null ? `$${Number(result.estimated_cost_usd).toLocaleString()}` : "—"}
-                    </div>
-                  </div>
-                  <div className="panel-2 p-3">
-                    <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground">Recovery Time</div>
-                    <div className="text-xl font-display font-bold text-primary mt-1">
-                      {result.recovery_time_hours != null ? `${Number(result.recovery_time_hours).toFixed(1)} h` : "—"}
-                    </div>
-                  </div>
-                </div>
+          {result && (() => {
+            const r = result as any;
+            const attackName = String(r.attack_type ?? ATTACK_MAP[attack] ?? "").replace(/_/g, " ").toUpperCase();
+            const actorColors: Record<string, string> = {
+              NATION_STATE: "#ff4444",
+              SOPHISTICATED_APT: "#ff9900",
+              INSIDER_THREAT: "#cc44ff",
+            };
+            const actorColor = actorColors[r.threat_actor_profile as string] ?? "#888";
+            const subsystemOrder = ["ADCS", "EPS", "Comms", "Thermal", "Payload", "GroundSegment"];
+            const initial = (r.initial_health ?? {}) as Record<string, any>;
+            const final = (r.final_health ?? {}) as Record<string, any>;
+            const impacts = (r.subsystem_impacts ?? {}) as Record<string, any>;
+            const cfgU = r.config_used ?? {};
+            const orb = r.orbital_context ?? {};
+            const enc = cfgU?.comms?.encryption_strength;
+            const encIsNone = typeof enc === "string" && enc.toLowerCase() === "none";
+            const healthColor = (v: number) => v > 70 ? "text-success" : v > 40 ? "text-amber" : "text-critical";
+            const healthBg = (v: number) => v > 70 ? "oklch(0.7 0.18 145)" : v > 40 ? "oklch(0.78 0.16 75)" : "oklch(0.65 0.22 22)";
 
-                {result.impact_summary && (
-                  <div>
-                    <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground mb-1.5">Impact Summary</div>
-                    <div className="text-sm leading-relaxed">{result.impact_summary}</div>
-                  </div>
-                )}
-
-                {result.subsystem_impacts && (
-                  <div>
-                    <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground mb-2">Subsystem Impacts</div>
-                    <div className="space-y-1.5">
-                      {Object.entries(result.subsystem_impacts as Record<string, any>).map(([k, v]) => (
-                        <div key={k} className="flex items-center justify-between text-xs font-mono panel-2 px-3 py-2">
-                          <span>{k}</span>
-                          <span className="text-critical">{typeof v === "number" ? `${v.toFixed(1)}%` : String(v)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <details className="text-xs font-mono">
-                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Raw JSON</summary>
-                  <pre className="mt-2 p-3 panel-2 overflow-auto max-h-96 text-[10px] leading-relaxed">{JSON.stringify(result, null, 2)}</pre>
-                </details>
+            const KV = ({ k, v, valueClass }: { k: string; v: React.ReactNode; valueClass?: string }) => (
+              <div className="flex items-center justify-between text-[11px] font-mono panel-2 px-3 py-1.5">
+                <span className="text-muted-foreground">{k}</span>
+                <span className={valueClass}>{v}</span>
               </div>
-            </Panel>
-          )}
+            );
+
+            return (
+              <Panel title="Simulation Result" action={<span className="text-[10px] font-mono text-success">COMPLETE</span>}>
+                <div className="p-5 space-y-5">
+                  {/* 1. Header */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="text-lg font-display font-bold tracking-wide text-glow text-primary">{attackName}</div>
+                    {r.engine === true && (
+                      <span className="text-[10px] font-mono uppercase tracking-[0.14em] px-2 py-1 rounded border border-primary/60 text-primary bg-primary/10">DIGITAL TWIN</span>
+                    )}
+                    {typeof r.success === "boolean" && (
+                      <span className={`text-[10px] font-mono uppercase tracking-[0.14em] px-2 py-1 rounded border ${
+                        r.success
+                          ? "border-success/60 text-success bg-success/10"
+                          : "border-critical/60 text-critical bg-critical/10"
+                      }`}>{r.success ? "SUCCESS" : "FAILED"}</span>
+                    )}
+                  </div>
+
+                  {/* 2. Summary tiles */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="panel-2 p-3">
+                      <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground">Degradation</div>
+                      <div className="text-xl font-display font-bold text-critical mt-1">
+                        {r.mission_degradation_percent != null ? `${Math.round(Number(r.mission_degradation_percent))}%` : "—"}
+                      </div>
+                    </div>
+                    <div className="panel-2 p-3">
+                      <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground">Cost</div>
+                      <div className="text-xl font-display font-bold text-high mt-1">
+                        {r.estimated_cost_usd != null ? `$${Number(r.estimated_cost_usd).toLocaleString()}` : "—"}
+                      </div>
+                    </div>
+                    <div className="panel-2 p-3">
+                      <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground">Recovery</div>
+                      <div className="text-xl font-display font-bold text-primary mt-1">
+                        {r.recovery_time_hours != null ? `${Number(r.recovery_time_hours).toFixed(1)}h` : "—"}
+                      </div>
+                    </div>
+                    <div className="panel-2 p-3">
+                      <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground">Time</div>
+                      <div className="text-xl font-display font-bold text-foreground mt-1">
+                        {completedAt ? completedAt.toLocaleTimeString() : "—"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3. Threat actor */}
+                  {r.threat_actor_profile && r.threat_actor_display && (
+                    <div
+                      className="panel-2 p-4 border-l-4"
+                      style={{ borderLeftColor: actorColor }}
+                    >
+                      <div className="text-sm font-display font-bold tracking-wide" style={{ color: actorColor }}>
+                        {String(r.threat_actor_display).toUpperCase()}
+                      </div>
+                      {r.threat_actor_summary && (
+                        <div className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{r.threat_actor_summary}</div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 4. Impact summary */}
+                  {r.impact_summary && (
+                    <div className="text-sm leading-relaxed">{r.impact_summary}</div>
+                  )}
+
+                  {/* 5. Config used */}
+                  {r.engine && r.config_used && (
+                    <div>
+                      <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground mb-2">Config Used By Engine</div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+                        {cfgU?.adcs?.pointing_accuracy_deg != null && <KV k="ADCS Pointing" v={`${cfgU.adcs.pointing_accuracy_deg}°`} />}
+                        {cfgU?.adcs?.num_reaction_wheels != null && <KV k="Reaction Wheels" v={cfgU.adcs.num_reaction_wheels} />}
+                        {cfgU?.adcs?.num_star_trackers != null && <KV k="Star Trackers" v={`${cfgU.adcs.num_star_trackers} (arcsec)`} />}
+                        {cfgU?.adcs?.num_gyroscopes != null && <KV k="Gyros" v={`${cfgU.adcs.num_gyroscopes} · drift ${cfgU.adcs.gyro_drift_deg_per_hour ?? "—"} deg/hr`} />}
+                        {cfgU?.eps?.solar_panel_area_m2 != null && <KV k="Solar Panels" v={`${cfgU.eps.solar_panel_area_m2}m² × ${cfgU.eps.num_solar_arrays ?? "—"}`} />}
+                        {cfgU?.eps?.battery_capacity_wh != null && <KV k="Battery" v={`${cfgU.eps.battery_capacity_wh} Wh`} />}
+                        {cfgU?.eps?.peak_power_draw_w != null && <KV k="Peak Draw" v={`${cfgU.eps.peak_power_draw_w} W`} />}
+                        {enc != null && <KV k="Encryption" v={String(enc)} valueClass={encIsNone ? "text-critical" : "text-success"} />}
+                        {cfgU?.ground_segment?.num_ground_stations != null && (
+                          <KV k="Ground Stations" v={`${cfgU.ground_segment.num_ground_stations} (${cfgU.ground_segment.passes_per_day ?? "—"}/day)`} />
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 6. Orbital context */}
+                  {r.engine && r.orbital_context && (
+                    <div>
+                      <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground mb-2">Orbital Context (TLE)</div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+                        {orb?.altitude_km != null && <KV k="Altitude" v={`${Number(orb.altitude_km).toFixed(1)} km`} />}
+                        {orb?.inclination_deg != null && <KV k="Inclination" v={`${Number(orb.inclination_deg).toFixed(2)}°`} />}
+                        {orb?.orbit_type != null && <KV k="Orbit" v={String(orb.orbit_type)} />}
+                        {orb?.in_eclipse != null && (
+                          <KV k="Eclipse" v={orb.in_eclipse ? "YES" : "No"} valueClass={orb.in_eclipse ? "text-critical" : "text-success"} />
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 7. Subsystem health */}
+                  {r.engine && r.final_health && (
+                    <div>
+                      <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground mb-2">Subsystem Health</div>
+                      <div className="space-y-2">
+                        {subsystemOrder.map((s) => {
+                          const before = Number(initial?.[s]?.overall_health ?? 100);
+                          const finalH = final?.[s]?.overall_health;
+                          const impact = Number(impacts?.[s] ?? 0);
+                          const afterRaw = finalH != null ? Number(finalH) : before;
+                          const after = Math.min(afterRaw, Math.max(0, before - impact));
+                          const afterRounded = Math.round(after);
+                          return (
+                            <div key={s} className="panel-2 px-3 py-2">
+                              <div className="flex items-center justify-between text-xs font-mono">
+                                <span>{s}</span>
+                                <span>
+                                  <span className="text-muted-foreground">{Math.round(before)}% → </span>
+                                  <span className={healthColor(after)}>{afterRounded}%</span>
+                                </span>
+                              </div>
+                              <div className="mt-1.5 h-1.5 rounded-full bg-surface-2 border border-border overflow-hidden">
+                                <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, afterRounded))}%`, background: healthBg(after) }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Panel>
+            );
+          })()}
 
         </div>
 
