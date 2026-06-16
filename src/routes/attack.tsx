@@ -1,6 +1,8 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState, useMemo, useEffect } from "react";
+import { toast } from "sonner";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
+import { apiFetch } from "@/lib/api";
 
 export const Route = createFileRoute("/attack")({
   head: () => ({
@@ -36,7 +38,18 @@ const ACTORS = [
   { id: "insider", name: "Insider Threat", tag: "TRUSTED", level: "HIGH" as const, accent: "primary", desc: "Malicious insider with physical/logical ground system access — GPS/RF/AI attacks NOT APPLICABLE" },
 ];
 
-const SATS = ["Sentinel-1A", "SBIRS-GEO-5", "WorldView-3", "GOES-18", "WGS-10"];
+const ATTACK_MAP: Record<AttackId, string> = {
+  "gps-spoof": "gps_spoofing",
+  "rf-jam": "rf_jamming",
+  "cmd-inj": "command_injection",
+  "gs-comp": "ground_station",
+  "ai-gnss": "ai_adaptive_spoofing",
+};
+const ACTOR_MAP: Record<string, string> = {
+  nation: "NATION_STATE",
+  apt: "SOPHISTICATED_APT",
+  insider: "INSIDER_THREAT",
+};
 
 // ---------- primitives ----------
 function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
@@ -74,9 +87,10 @@ function Check({ checked, onChange, label }: { checked: boolean; onChange: (v: b
 }
 
 function Attack() {
-  const navigate = useNavigate();
-  const [sat, setSat] = useState("Sentinel-1A");
-  
+  const [configs, setConfigs] = useState<Record<string, any>>({});
+  const [configsLoading, setConfigsLoading] = useState(true);
+  const [sat, setSat] = useState<string>("");
+
   const [attack, setAttack] = useState<AttackId>("ai-gnss");
   const [actor, setActor] = useState("apt");
   const [open, setOpen] = useState(false);
@@ -108,10 +122,107 @@ function Attack() {
   const [uq, setUq] = useState(true);
   const [sa, setSa] = useState(true);
 
+  // result
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+
   const activeAttack = useMemo(() => LIVE.find((l) => l.id === attack)!, [attack]);
 
-  function go() {
-    navigate({ to: "/results" });
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiFetch("/api/configs");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = (await res.json()) as { name: string; created_at: string; config: any }[];
+        if (cancelled) return;
+        const map: Record<string, any> = {};
+        for (const c of data) map[c.name] = c.config;
+        setConfigs(map);
+        if (data.length > 0) setSat(data[0].name);
+      } catch (e) {
+        if (!cancelled) toast.error("Failed to load target assets");
+      } finally {
+        if (!cancelled) setConfigsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  function buildAttackParams(): Record<string, any> {
+    switch (attack) {
+      case "gps-spoof":
+        return { position_offset_m: posOffset, signal_power_watts: sigPower };
+      case "rf-jam":
+        return {
+          jammer_power_watts: jamPower,
+          center_frequency_mhz: jamFreq,
+          jamming_type: jamType.toLowerCase().split(" ")[0],
+        };
+      case "cmd-inj":
+        return { command_type: cmdType, bypass_method: bypass };
+      case "gs-comp":
+        if (gsPath === "Network Intrusion") {
+          return {
+            gs_attack_path: "network",
+            attack_vector: gsVector,
+            compromise_level: gsCompLvl,
+            covert_operation: gsCovert === "Yes",
+          };
+        }
+        return {
+          gs_attack_path: "firmware_exploitation",
+          terminal_type: termType,
+          firmware_update_mechanism: fwUpdate,
+          secure_boot: secureBoot,
+          debug_port_exposed: debugPort,
+          command_code_signing: cmdSigning,
+        };
+      case "ai-gnss":
+        return { iterations: iters, exploration_rate: explore, stealth_weight: stealth };
+    }
+  }
+
+  async function go() {
+    if (!sat) { toast.error("Select a target asset"); return; }
+    const cfg = configs[sat] ?? {};
+    setRunning(true);
+    setError(null);
+    setResult(null);
+    try {
+      const body = {
+        attack_type: ATTACK_MAP[attack],
+        severity: severity / 100,
+        threat_actor_profile: ACTOR_MAP[actor],
+        duration_seconds: duration,
+        uncertainty: uq,
+        uncertainty_samples: 5,
+        satellite_name: sat,
+        satellite_config: cfg,
+        altitude_km: cfg?.altitude_km,
+        inclination_deg: cfg?.inclination_deg,
+        orbit_type: cfg?.orbit_type,
+        norad_id: cfg?.norad_id,
+        ...buildAttackParams(),
+      };
+      const res = await apiFetch("/api/simulate", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const detail = (data && (data.detail || data.error)) || `HTTP ${res.status}`;
+        throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+      }
+      setResult(data);
+      toast.success("Simulation complete");
+    } catch (e: any) {
+      setError(e?.message ?? "Simulation failed");
+      toast.error(e?.message ?? "Simulation failed");
+    } finally {
+      setRunning(false);
+    }
   }
 
   return (
@@ -122,7 +233,11 @@ function Attack() {
           {/* Target asset */}
           <Panel title="Target Asset" action={<Link to="/configure" className="text-[10px] font-mono uppercase tracking-wider text-primary hover:underline">Configure →</Link>}>
             <div className="p-4 flex gap-2 flex-wrap">
-              {SATS.map((s) => (
+              {configsLoading && <div className="text-[11px] font-mono text-muted-foreground">Loading targets…</div>}
+              {!configsLoading && Object.keys(configs).length === 0 && (
+                <div className="text-[11px] font-mono text-muted-foreground">No saved configurations. <Link to="/configure" className="text-primary hover:underline">Create one →</Link></div>
+              )}
+              {Object.keys(configs).map((s) => (
                 <button key={s} onClick={() => setSat(s)}
                   className={`px-3 py-1.5 rounded-md text-xs font-mono border transition-colors ${
                     sat === s ? "bg-primary/15 border-primary text-primary text-glow" : "panel-2 text-muted-foreground hover:text-foreground"
@@ -276,17 +391,76 @@ function Attack() {
 
           {/* Run buttons */}
           <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
-            <button onClick={go}
-              className="w-full inline-flex items-center justify-center gap-2 px-5 py-4 rounded-md font-display font-bold tracking-[0.2em] text-primary-foreground shadow-[0_0_40px_-8px_oklch(0.78_0.16_200_/_0.6)]"
+            <button onClick={go} disabled={running || configsLoading || !sat}
+              className="w-full inline-flex items-center justify-center gap-2 px-5 py-4 rounded-md font-display font-bold tracking-[0.2em] text-primary-foreground shadow-[0_0_40px_-8px_oklch(0.78_0.16_200_/_0.6)] disabled:opacity-60 disabled:cursor-not-allowed"
               style={{ background: "linear-gradient(90deg, oklch(0.65 0.16 200), oklch(0.78 0.16 200))" }}>
-              RUN ATTACK SIMULATION
+              {running ? "RUNNING SIMULATION…" : "RUN ATTACK SIMULATION"}
             </button>
-            <button className="inline-flex items-center justify-center gap-2 px-5 py-4 rounded-md font-display font-bold tracking-[0.2em] text-critical-foreground"
+            <button onClick={() => { setResult(null); setError(null); }}
+              className="inline-flex items-center justify-center gap-2 px-5 py-4 rounded-md font-display font-bold tracking-[0.2em] text-critical-foreground"
               style={{ background: "linear-gradient(90deg, oklch(0.55 0.22 22), oklch(0.7 0.24 22))" }}>
               CLEAR RESULTS
             </button>
           </div>
 
+          {error && (
+            <Panel title="Simulation Error" action={<StatusBadge level="CRITICAL" />}>
+              <div className="p-4 text-xs font-mono text-critical break-all">{error}</div>
+            </Panel>
+          )}
+
+          {result && (
+            <Panel title="Simulation Result" action={<span className="text-[10px] font-mono text-success">COMPLETE</span>}>
+              <div className="p-5 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="panel-2 p-3">
+                    <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground">Mission Degradation</div>
+                    <div className="text-xl font-display font-bold text-critical mt-1">
+                      {result.mission_degradation_percent != null ? `${Number(result.mission_degradation_percent).toFixed(1)}%` : "—"}
+                    </div>
+                  </div>
+                  <div className="panel-2 p-3">
+                    <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground">Estimated Cost</div>
+                    <div className="text-xl font-display font-bold text-high mt-1">
+                      {result.estimated_cost_usd != null ? `$${Number(result.estimated_cost_usd).toLocaleString()}` : "—"}
+                    </div>
+                  </div>
+                  <div className="panel-2 p-3">
+                    <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground">Recovery Time</div>
+                    <div className="text-xl font-display font-bold text-primary mt-1">
+                      {result.recovery_time_hours != null ? `${Number(result.recovery_time_hours).toFixed(1)} h` : "—"}
+                    </div>
+                  </div>
+                </div>
+
+                {result.impact_summary && (
+                  <div>
+                    <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground mb-1.5">Impact Summary</div>
+                    <div className="text-sm leading-relaxed">{result.impact_summary}</div>
+                  </div>
+                )}
+
+                {result.subsystem_impacts && (
+                  <div>
+                    <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground mb-2">Subsystem Impacts</div>
+                    <div className="space-y-1.5">
+                      {Object.entries(result.subsystem_impacts as Record<string, any>).map(([k, v]) => (
+                        <div key={k} className="flex items-center justify-between text-xs font-mono panel-2 px-3 py-2">
+                          <span>{k}</span>
+                          <span className="text-critical">{typeof v === "number" ? `${v.toFixed(1)}%` : String(v)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <details className="text-xs font-mono">
+                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Raw JSON</summary>
+                  <pre className="mt-2 p-3 panel-2 overflow-auto max-h-96 text-[10px] leading-relaxed">{JSON.stringify(result, null, 2)}</pre>
+                </details>
+              </div>
+            </Panel>
+          )}
 
         </div>
 
