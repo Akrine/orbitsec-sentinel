@@ -391,17 +391,76 @@ function Attack() {
 
           {/* Run buttons */}
           <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
-            <button onClick={go}
-              className="w-full inline-flex items-center justify-center gap-2 px-5 py-4 rounded-md font-display font-bold tracking-[0.2em] text-primary-foreground shadow-[0_0_40px_-8px_oklch(0.78_0.16_200_/_0.6)]"
+            <button onClick={go} disabled={running || configsLoading || !sat}
+              className="w-full inline-flex items-center justify-center gap-2 px-5 py-4 rounded-md font-display font-bold tracking-[0.2em] text-primary-foreground shadow-[0_0_40px_-8px_oklch(0.78_0.16_200_/_0.6)] disabled:opacity-60 disabled:cursor-not-allowed"
               style={{ background: "linear-gradient(90deg, oklch(0.65 0.16 200), oklch(0.78 0.16 200))" }}>
-              RUN ATTACK SIMULATION
+              {running ? "RUNNING SIMULATION…" : "RUN ATTACK SIMULATION"}
             </button>
-            <button className="inline-flex items-center justify-center gap-2 px-5 py-4 rounded-md font-display font-bold tracking-[0.2em] text-critical-foreground"
+            <button onClick={() => { setResult(null); setError(null); }}
+              className="inline-flex items-center justify-center gap-2 px-5 py-4 rounded-md font-display font-bold tracking-[0.2em] text-critical-foreground"
               style={{ background: "linear-gradient(90deg, oklch(0.55 0.22 22), oklch(0.7 0.24 22))" }}>
               CLEAR RESULTS
             </button>
           </div>
 
+          {error && (
+            <Panel title="Simulation Error" action={<StatusBadge level="CRITICAL" />}>
+              <div className="p-4 text-xs font-mono text-critical break-all">{error}</div>
+            </Panel>
+          )}
+
+          {result && (
+            <Panel title="Simulation Result" action={<span className="text-[10px] font-mono text-success">COMPLETE</span>}>
+              <div className="p-5 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="panel-2 p-3">
+                    <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground">Mission Degradation</div>
+                    <div className="text-xl font-display font-bold text-critical mt-1">
+                      {result.mission_degradation_percent != null ? `${Number(result.mission_degradation_percent).toFixed(1)}%` : "—"}
+                    </div>
+                  </div>
+                  <div className="panel-2 p-3">
+                    <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground">Estimated Cost</div>
+                    <div className="text-xl font-display font-bold text-high mt-1">
+                      {result.estimated_cost_usd != null ? `$${Number(result.estimated_cost_usd).toLocaleString()}` : "—"}
+                    </div>
+                  </div>
+                  <div className="panel-2 p-3">
+                    <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground">Recovery Time</div>
+                    <div className="text-xl font-display font-bold text-primary mt-1">
+                      {result.recovery_time_hours != null ? `${Number(result.recovery_time_hours).toFixed(1)} h` : "—"}
+                    </div>
+                  </div>
+                </div>
+
+                {result.impact_summary && (
+                  <div>
+                    <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground mb-1.5">Impact Summary</div>
+                    <div className="text-sm leading-relaxed">{result.impact_summary}</div>
+                  </div>
+                )}
+
+                {result.subsystem_impacts && (
+                  <div>
+                    <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground mb-2">Subsystem Impacts</div>
+                    <div className="space-y-1.5">
+                      {Object.entries(result.subsystem_impacts as Record<string, any>).map(([k, v]) => (
+                        <div key={k} className="flex items-center justify-between text-xs font-mono panel-2 px-3 py-2">
+                          <span>{k}</span>
+                          <span className="text-critical">{typeof v === "number" ? `${v.toFixed(1)}%` : String(v)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <details className="text-xs font-mono">
+                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Raw JSON</summary>
+                  <pre className="mt-2 p-3 panel-2 overflow-auto max-h-96 text-[10px] leading-relaxed">{JSON.stringify(result, null, 2)}</pre>
+                </details>
+              </div>
+            </Panel>
+          )}
 
         </div>
 
