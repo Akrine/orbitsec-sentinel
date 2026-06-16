@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
+import { apiFetch } from "@/lib/api";
 
 export const Route = createFileRoute("/constellation")({
   head: () => ({
@@ -12,21 +14,19 @@ export const Route = createFileRoute("/constellation")({
   component: Constellation,
 });
 
-type Sat = {
-  id: string;
+// Saved config from /api/configs
+type SavedConfig = {
   name: string;
-  orbit: string;
-  alt: string;
-  value: string;
-  tags: [string, string, string];
+  created_at?: string;
+  config: any;
 };
 
-const INITIAL: Sat[] = [
-  { id: "s1", name: "Sentinel-1A", orbit: "LEO", alt: "693km", value: "$380M", tags: ["AES-128", "HMAC-SHA256", "Basic"] },
-  { id: "s2", name: "SBIRS-GEO-5", orbit: "GEO", alt: "35,786km", value: "$2.1B", tags: ["AES-256", "Digital Sig", "Zero-Trust"] },
-  { id: "s3", name: "WorldView-3", orbit: "LEO", alt: "617km", value: "$650M", tags: ["AES-256", "HMAC-SHA256", "Zero-Trust"] },
-  { id: "s4", name: "GOES-18", orbit: "GEO", alt: "35,786km", value: "$500M", tags: ["AES-128", "Seq Counter", "Basic"] },
-];
+// Roster entry — keeps full config
+type RosterEntry = {
+  id: string;
+  name: string;
+  config: any;
+};
 
 const ATTACKS_LIVE = [
   { id: "gnss", label: "GPS / GNSS Spoofing" },
@@ -36,30 +36,41 @@ const ATTACKS_LIVE = [
   { id: "ai", label: "AI-Adaptive GNSS Spoofing" },
 ];
 
-const RESULTS = [
-  {
-    id: "s1", name: "Sentinel-1A", orbit: "LEO · 693km",
-    deg: 84.2, rec: "4.2h", risk: "CRITICAL" as const, accent: true,
-    cascade: "GS cascade from primary: +18.6% via 4/8 shared stations",
-    subs: [["ADCS", 92], ["COMMS", 78], ["PAYLOAD", 71]] as const,
-  },
-  {
-    id: "s2", name: "SBIRS-GEO-5", orbit: "GEO · 35,786km",
-    deg: 61.3, rec: "3.1h", risk: "HIGH" as const, accent: true,
-    cascade: "Shared Vandenberg GS: +12.4% secondary impact",
-    subs: [["COMMS", 74], ["PAYLOAD", 58], ["EPS", 41]] as const,
-  },
-  {
-    id: "s3", name: "WorldView-3", orbit: "LEO · 617km",
-    deg: 47.8, rec: "2.4h", risk: "HIGH" as const,
-    subs: [["ADCS", 62], ["PAYLOAD", 48], ["THERMAL", 32]] as const,
-  },
-  {
-    id: "s4", name: "GOES-18", orbit: "GEO · 35,786km",
-    deg: 40.1, rec: "1.8h", risk: "MEDIUM" as const,
-    subs: [["COMMS", 55], ["EPS", 38], ["PAYLOAD", 29]] as const,
-  },
-];
+const ATTACK_MAP: Record<string, string> = {
+  gnss: "gps_spoofing",
+  rf: "rf_jamming",
+  cmd: "command_injection",
+  gs: "ground_station",
+  ai: "ai_adaptive_spoofing",
+};
+const ACTOR_MAP: Record<string, string> = {
+  nation: "NATION_STATE",
+  apt: "SOPHISTICATED_APT",
+  insider: "INSIDER_THREAT",
+};
+const TOPO_MAP: Record<string, string> = {
+  "None": "none",
+  "Partial Mesh": "partial",
+  "Full Mesh": "full",
+};
+
+type SubsystemImpact = Record<string, number>;
+type SatelliteResult = {
+  satellite_name: string;
+  mission_degradation_percent: number;
+  recovery_time_hours: number;
+  estimated_cost_usd: number;
+  subsystem_impacts?: SubsystemImpact;
+  cascade_applied?: boolean;
+  cascade_description?: string;
+};
+type ConstellationResponse = {
+  aggregate_degradation_percent: number;
+  max_degradation_percent: number;
+  total_recovery_time_hours: number;
+  total_estimated_cost_usd: number;
+  satellite_results: SatelliteResult[];
+};
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -72,8 +83,40 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const inputCls = "w-full panel-2 px-2.5 py-1.5 text-xs font-mono bg-transparent rounded outline-none focus:border-primary/50";
 
+function valueM(cfg: any): string {
+  const v = cfg?.financial?.asset_value_usd ?? 0;
+  return `$${(v / 1e6).toFixed(0)}M`;
+}
+
+function fmtCost(v: number): string {
+  if (v >= 1e6) return `$${(v / 1e6).toFixed(1)}M`;
+  return `$${Math.round(v).toLocaleString()}`;
+}
+
+function degClass(v: number): string {
+  if (v >= 70) return "text-critical";
+  if (v >= 50) return "text-high";
+  if (v >= 30) return "text-medium";
+  return "text-success";
+}
+function degBar(v: number): string {
+  if (v >= 70) return "bg-critical";
+  if (v >= 50) return "bg-high";
+  if (v >= 30) return "bg-medium";
+  return "bg-success";
+}
+function degRisk(v: number): "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" {
+  if (v >= 70) return "CRITICAL";
+  if (v >= 50) return "HIGH";
+  if (v >= 30) return "MEDIUM";
+  return "LOW";
+}
+
 function Constellation() {
-  const [sats, setSats] = useState<Sat[]>(INITIAL);
+  const [savedConfigs, setSavedConfigs] = useState<SavedConfig[]>([]);
+  const [sats, setSats] = useState<RosterEntry[]>([]);
+  const [pickName, setPickName] = useState<string>("");
+
   const [gs, setGs] = useState(8);
   const [shared, setShared] = useState(4);
   const [topo, setTopo] = useState("None");
@@ -86,15 +129,100 @@ function Constellation() {
   const [unc, setUnc] = useState(true);
   const [sens, setSens] = useState(true);
 
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<ConstellationResponse | null>(null);
+
+  // Load saved configs once
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiFetch("/api/configs");
+        if (!res.ok) throw new Error(`Failed to load configs (${res.status})`);
+        const data = (await res.json()) as SavedConfig[];
+        setSavedConfigs(data);
+        // Default-load first 2–4 configs
+        const initial = data.slice(0, Math.min(4, Math.max(2, data.length))).map((c, i) => ({
+          id: `r${i}_${c.name}`,
+          name: c.name,
+          config: c.config,
+        }));
+        setSats(initial);
+        const used = new Set(initial.map((s) => s.name));
+        const next = data.find((c) => !used.has(c.name));
+        setPickName(next?.name ?? "");
+      } catch (e: any) {
+        toast.error(e?.message ?? "Failed to load saved configurations");
+      }
+    })();
+  }, []);
+
+  const usedNames = new Set(sats.map((s) => s.name));
+  const available = savedConfigs.filter((c) => !usedNames.has(c.name));
+
   const addSat = () => {
     if (sats.length >= 12) return;
-    const n = sats.length + 1;
-    setSats([...sats, {
-      id: `n${Date.now()}`, name: `OSIM-NODE-${n}`, orbit: "LEO", alt: "550km", value: "$120M",
-      tags: ["AES-256", "HMAC-SHA256", "Basic"],
-    }]);
+    const pick = available.find((c) => c.name === pickName) ?? available[0];
+    if (!pick) return;
+    setSats([...sats, { id: `r${Date.now()}_${pick.name}`, name: pick.name, config: pick.config }]);
+    const remaining = available.filter((c) => c.name !== pick.name);
+    setPickName(remaining[0]?.name ?? "");
   };
   const removeSat = (id: string) => setSats(sats.filter((s) => s.id !== id));
+
+  const run = async () => {
+    if (sats.length < 2) {
+      toast.error("Add at least 2 satellites to the roster");
+      return;
+    }
+    setRunning(true);
+    try {
+      const body: any = {
+        attack_type: ATTACK_MAP[attack],
+        severity: severity / 100,
+        duration_seconds: duration,
+        threat_actor_profile: ACTOR_MAP[actor],
+        satellites: sats.map((s) => ({
+          name: s.name,
+          norad_id: s.config?.norad_id,
+          orbit_type: s.config?.orbit_type,
+          altitude_km: s.config?.altitude_km,
+          asset_value_m: (s.config?.financial?.asset_value_usd ?? 0) / 1e6,
+          satellite_config: s.config,
+        })),
+        shared_infra: {
+          total_ground_stations: gs,
+          shared_ground_stations: shared,
+          crosslink_topology: TOPO_MAP[topo] ?? "none",
+          independent_network_segments: indep,
+        },
+      };
+      if (ATTACK_MAP[attack] === "ground_station") {
+        body.attack_vector = "cyber_attack";
+        body.compromise_level = "operator_workstation";
+        body.covert_operation = true;
+      }
+      if (ATTACK_MAP[attack] === "rf_jamming") {
+        body.jammer_power_watts = 100;
+        body.center_frequency_mhz = 2200;
+        body.jamming_type = "barrage";
+      }
+      const res = await apiFetch("/api/constellation/simulate", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(`Constellation simulation failed (${res.status}): ${txt.slice(0, 160)}`);
+      }
+      const data = (await res.json()) as ConstellationResponse;
+      setResult(data);
+      toast.success("Constellation simulation complete");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Constellation simulation failed");
+    } finally {
+      setRunning(false);
+    }
+  };
 
   return (
     <AppShell title="Constellation Mode" subtitle="MULTI-ASSET CASCADING ATTACK · LIVE">
@@ -115,41 +243,56 @@ function Constellation() {
           <Panel
             title={`Satellite Roster · ${sats.length}/12`}
             action={
-              <button onClick={addSat} disabled={sats.length >= 12} className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-primary hover:text-primary/80 disabled:opacity-40">
-                Add Satellite
-              </button>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                MIN 2 · MAX 12
+              </span>
             }
           >
-            <div className="p-3 space-y-2 max-h-[420px] overflow-auto">
+            <div className="p-3 space-y-2 max-h-[480px] overflow-auto">
+              <div className="flex gap-1.5">
+                <select
+                  value={pickName}
+                  onChange={(e) => setPickName(e.target.value)}
+                  className={inputCls}
+                  disabled={available.length === 0 || sats.length >= 12}
+                >
+                  {available.length === 0 ? (
+                    <option value="">No more saved configs</option>
+                  ) : (
+                    available.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)
+                  )}
+                </select>
+                <button
+                  onClick={addSat}
+                  disabled={sats.length >= 12 || available.length === 0}
+                  className="panel-2 px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-primary hover:text-primary/80 disabled:opacity-40"
+                >
+                  Add
+                </button>
+              </div>
+
               {sats.length === 0 && (
                 <div className="text-xs font-mono text-muted-foreground text-center py-8 panel-2">
                   Add 2–12 satellites to the constellation
                 </div>
               )}
-              {sats.map((s) => (
-                <div key={s.id} className="panel-2 p-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="w-8 text-[10px] font-mono font-bold text-primary">SAT</span>
-                    <span className="text-xs font-mono font-semibold flex-1 truncate">{s.name}</span>
-                    <button className="h-5 w-5 rounded hover:bg-background text-muted-foreground hover:text-primary flex items-center justify-center">
-                      <span className="text-[9px] font-mono">EDIT</span>
-                    </button>
-                    <button onClick={() => removeSat(s.id)} className="h-5 w-5 rounded hover:bg-background text-muted-foreground hover:text-critical flex items-center justify-center">
-                      <span className="text-[9px] font-mono">DEL</span>
-                    </button>
+              {sats.map((s) => {
+                const cfg = s.config ?? {};
+                return (
+                  <div key={s.id} className="panel-2 p-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="w-8 text-[10px] font-mono font-bold text-primary">SAT</span>
+                      <span className="text-xs font-mono font-semibold flex-1 truncate">{s.name}</span>
+                      <button onClick={() => removeSat(s.id)} className="h-5 px-1.5 rounded hover:bg-background text-muted-foreground hover:text-critical flex items-center justify-center">
+                        <span className="text-[9px] font-mono">DEL</span>
+                      </button>
+                    </div>
+                    <div className="mt-1 text-[10px] font-mono text-muted-foreground">
+                      {cfg.orbit_type ?? "—"} · {cfg.altitude_km ?? "—"}km · <span className="text-foreground">{valueM(cfg)}</span>
+                    </div>
                   </div>
-                  <div className="mt-1 text-[10px] font-mono text-muted-foreground">
-                    {s.orbit} · {s.alt} · <span className="text-foreground">{s.value}</span>
-                  </div>
-                  <div className="mt-1.5 flex flex-wrap gap-1">
-                    {s.tags.map((t) => (
-                      <span key={t} className="text-[9px] font-mono px-1.5 py-0.5 rounded border border-border bg-background/60 text-muted-foreground">
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </Panel>
 
@@ -176,8 +319,8 @@ function Constellation() {
           </Panel>
         </div>
 
-        {/* CENTER: SVG Diagram */}
-        <Panel className="xl:col-span-6" title="Constellation Topology" action={<span className="text-[10px] font-mono text-muted-foreground">{sats.length} ASSETS · 3 GROUND STATIONS</span>}>
+        {/* CENTER: SVG Diagram (decorative) */}
+        <Panel className="xl:col-span-6" title="Constellation Topology" action={<span className="text-[10px] font-mono text-muted-foreground">{sats.length} ASSETS · {gs} GROUND STATIONS</span>}>
           <div className="p-4">
             <div className="relative panel-2 rounded-md overflow-hidden hud-grid" style={{ height: 440 }}>
               <svg viewBox="0 0 800 440" className="w-full h-full">
@@ -188,11 +331,8 @@ function Constellation() {
                   </radialGradient>
                 </defs>
 
-                {/* Earth horizon */}
                 <ellipse cx="400" cy="440" rx="500" ry="80" fill="oklch(0.22 0.04 240)" stroke="oklch(0.36 0.02 240)" />
                 <ellipse cx="400" cy="440" rx="500" ry="80" fill="none" stroke="oklch(0.78 0.16 195 / 0.3)" />
-
-                {/* Orbit arc */}
                 <path d="M 40 180 Q 400 -10 760 180" stroke="oklch(0.36 0.02 240)" strokeWidth="1" fill="none" strokeDasharray="2 4" />
 
                 {(() => {
@@ -207,38 +347,35 @@ function Constellation() {
                   const display = sats.slice(0, 4);
                   return (
                     <>
-                      {/* sat → gs nominal lines */}
                       {display.map((s, i) => {
                         const p = positions[i % positions.length];
                         const g = stations[i % stations.length];
                         return <line key={`l${s.id}`} x1={p.x} y1={p.y} x2={g.x} y2={g.y} stroke="oklch(0.36 0.02 240)" strokeWidth="1" />;
                       })}
 
-                      {/* cascade dashed red lines from primary */}
                       <line x1={positions[0].x} y1={positions[0].y} x2={stations[0].x} y2={stations[0].y} stroke="oklch(0.65 0.24 22)" strokeWidth="1.5" strokeDasharray="4 4" className="flow-line" />
                       <line x1={stations[0].x} y1={stations[0].y} x2={positions[1].x} y2={positions[1].y} stroke="oklch(0.65 0.24 22)" strokeWidth="1.5" strokeDasharray="4 4" className="flow-line" />
                       <line x1={positions[1].x} y1={positions[1].y} x2={stations[1].x} y2={stations[1].y} stroke="oklch(0.65 0.24 22 / 0.7)" strokeWidth="1.5" strokeDasharray="4 4" className="flow-line" />
                       <line x1={stations[1].x} y1={stations[1].y} x2={positions[2].x} y2={positions[2].y} stroke="oklch(0.74 0.18 50 / 0.8)" strokeWidth="1.5" strokeDasharray="4 4" className="flow-line" />
                       <line x1={positions[2].x} y1={positions[2].y} x2={stations[2].x} y2={stations[2].y} stroke="oklch(0.74 0.18 50 / 0.6)" strokeWidth="1" strokeDasharray="3 3" />
 
-                      {/* satellites */}
                       {display.map((s, i) => {
                         const p = positions[i % positions.length];
-                        const r = RESULTS[i];
-                        const breach = i < 2;
-                        const color = r.deg > 70 ? "oklch(0.65 0.24 22)" : r.deg > 40 ? "oklch(0.74 0.18 50)" : "oklch(0.78 0.16 195)";
+                        const sr = result?.satellite_results?.[i];
+                        const deg = sr?.mission_degradation_percent ?? 0;
+                        const breach = deg >= 50;
+                        const color = deg >= 70 ? "oklch(0.65 0.24 22)" : deg >= 40 ? "oklch(0.74 0.18 50)" : "oklch(0.78 0.16 195)";
                         return (
                           <g key={s.id}>
                             {breach && <circle cx={p.x} cy={p.y} r="22" fill="url(#halo2)" className="pulse-dot" />}
                             <circle cx={p.x} cy={p.y} r="7" fill={color} />
                             <circle cx={p.x} cy={p.y} r="11" fill="none" stroke={color} strokeOpacity="0.5" />
                             <text x={p.x} y={p.y - 18} textAnchor="middle" fontSize="10" className="font-mono" fill="oklch(0.92 0.005 240)">{s.name}</text>
-                            <text x={p.x} y={p.y + 24} textAnchor="middle" fontSize="9" className="font-mono" fill={color}>{r.deg}%</text>
+                            {sr && <text x={p.x} y={p.y + 24} textAnchor="middle" fontSize="9" className="font-mono" fill={color}>{deg.toFixed(1)}%</text>}
                           </g>
                         );
                       })}
 
-                      {/* ground stations */}
                       {stations.map((g) => (
                         <g key={g.name}>
                           <path d={`M ${g.x - 10} ${g.y + 8} L ${g.x} ${g.y - 10} L ${g.x + 10} ${g.y + 8} Z`} fill="oklch(0.205 0.015 240)" stroke="oklch(0.78 0.16 195)" strokeWidth="1.2" />
@@ -254,7 +391,7 @@ function Constellation() {
                 <div className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-critical pulse-dot" /> CASCADE PATH</div>
                 <div className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-primary" /> NOMINAL LINK</div>
               </div>
-              <div className="absolute bottom-3 right-3 panel-2 px-2 py-1 text-[10px] font-mono text-muted-foreground">FRAME ECI · EPOCH 2026-167T14:32Z</div>
+              <div className="absolute bottom-3 right-3 panel-2 px-2 py-1 text-[10px] font-mono text-muted-foreground">FRAME ECI · DECORATIVE</div>
             </div>
           </div>
         </Panel>
@@ -308,97 +445,125 @@ function Constellation() {
             </div>
           </Panel>
 
-          <button className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md bg-gradient-to-r from-primary to-accent text-primary-foreground font-display font-bold tracking-wider hover:brightness-110 shadow-[0_0_30px_-8px_oklch(0.78_0.16_195_/_0.6)]">
-            RUN CONSTELLATION ATTACK
+          <button
+            onClick={run}
+            disabled={running || sats.length < 2}
+            className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md bg-gradient-to-r from-primary to-accent text-primary-foreground font-display font-bold tracking-wider hover:brightness-110 shadow-[0_0_30px_-8px_oklch(0.78_0.16_195_/_0.6)] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {running ? "RUNNING CONSTELLATION ATTACK..." : "RUN CONSTELLATION ATTACK"}
           </button>
+          {sats.length < 2 && (
+            <div className="text-[10px] font-mono text-muted-foreground text-center">
+              Roster requires at least 2 satellites
+            </div>
+          )}
         </div>
       </div>
 
       {/* RESULTS */}
-      <div className="mt-6">
-        <div className="flex items-center gap-2 mb-3">
-          <h2 className="text-xs font-mono uppercase tracking-[0.16em] text-muted-foreground">Constellation Results</h2>
-          <span className="text-[10px] font-mono text-muted-foreground">· LAST RUN 14:32:08Z · 500 MC SAMPLES</span>
-        </div>
+      {result && (
+        <div className="mt-6">
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="text-xs font-mono uppercase tracking-[0.16em] text-muted-foreground">Constellation Results</h2>
+            <span className="text-[10px] font-mono text-muted-foreground">· {result.satellite_results.length} ASSETS</span>
+          </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="panel p-4">
-            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Aggregate Degradation</div>
-            <div className="mt-2 text-3xl font-display font-bold">58.4%</div>
-            <div className="text-[10px] font-mono text-muted-foreground mt-1">weighted by asset value</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="panel p-4">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Aggregate Degradation</div>
+              <div className="mt-2 text-3xl font-display font-bold">{result.aggregate_degradation_percent.toFixed(1)}%</div>
+              <div className="text-[10px] font-mono text-muted-foreground mt-1">weighted by asset value</div>
+            </div>
+            <div className="panel p-4 border-critical/40">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Peak Degradation</div>
+              <div className={`mt-2 text-3xl font-display font-bold ${degClass(result.max_degradation_percent)}`}>{result.max_degradation_percent.toFixed(1)}%</div>
+              <div className="text-[10px] font-mono text-muted-foreground mt-1">worst-case asset</div>
+            </div>
+            <div className="panel p-4 border-high/40">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Max Recovery Time</div>
+              <div className="mt-2 text-3xl font-display font-bold text-high">{result.total_recovery_time_hours.toFixed(1)}h</div>
+              <div className="text-[10px] font-mono text-muted-foreground mt-1">end-to-end constellation</div>
+            </div>
+            <div className="panel p-4 border-success/40">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Total Cost</div>
+              <div className="mt-2 text-3xl font-display font-bold text-success">{fmtCost(result.total_estimated_cost_usd)}</div>
+              <div className="text-[10px] font-mono text-muted-foreground mt-1">downtime + recovery ops</div>
+            </div>
           </div>
-          <div className="panel p-4 border-critical/40">
-            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Peak Degradation</div>
-            <div className="mt-2 text-3xl font-display font-bold text-critical">84.2%</div>
-            <div className="text-[10px] font-mono text-muted-foreground mt-1">Sentinel-1A · primary target</div>
-          </div>
-          <div className="panel p-4 border-high/40">
-            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Max Recovery Time</div>
-            <div className="mt-2 text-3xl font-display font-bold text-high">6.8h</div>
-            <div className="text-[10px] font-mono text-muted-foreground mt-1">end-to-end constellation</div>
-          </div>
-          <div className="panel p-4 border-success/40">
-            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Total Cost</div>
-            <div className="mt-2 text-3xl font-display font-bold text-success">$4.2M</div>
-            <div className="text-[10px] font-mono text-muted-foreground mt-1">downtime + recovery ops</div>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
-          {RESULTS.map((r) => (
-            <div key={r.id} className={`panel p-4 ${r.accent ? "border-l-4 border-l-high" : ""}`}>
-              <div className="flex items-start gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-mono font-semibold">{r.name}</span>
-                    <span className="text-[10px] font-mono text-muted-foreground">· {r.orbit}</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+            {result.satellite_results.map((r, idx) => {
+              const deg = r.mission_degradation_percent;
+              const impacts = Object.entries(r.subsystem_impacts ?? {}).sort((a, b) => b[1] - a[1]);
+              return (
+                <div key={`${r.satellite_name}_${idx}`} className={`panel p-4 ${r.cascade_applied ? "border-l-4 border-l-high" : ""}`}>
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-mono font-semibold">{r.satellite_name}</span>
+                        {r.cascade_applied && (
+                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border border-high/40 bg-high/10 text-high uppercase tracking-wider">
+                            Cascade
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <StatusBadge level={degRisk(deg)} />
                   </div>
-                </div>
-                <StatusBadge level={r.risk} />
-              </div>
 
-              <div className="mt-3 flex items-end gap-6">
-                <div>
-                  <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Degradation</div>
-                  <div className={`text-2xl font-display font-bold ${r.deg > 70 ? "text-critical" : r.deg > 40 ? "text-high" : "text-medium"}`}>{r.deg}%</div>
-                </div>
-                <div>
-                  <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Recovery</div>
-                  <div className="text-2xl font-display font-bold">{r.rec}</div>
-                </div>
-              </div>
+                  {r.cascade_applied && r.cascade_description && (
+                    <div className="mt-2 panel-2 px-2.5 py-1.5 text-[10px] font-mono text-high border-high/30">
+                      {r.cascade_description}
+                    </div>
+                  )}
 
-              <div className="mt-2 h-1 rounded bg-background overflow-hidden">
-                <div className={`h-full ${r.deg > 70 ? "bg-critical" : r.deg > 40 ? "bg-high" : "bg-medium"}`} style={{ width: `${r.deg}%` }} />
-              </div>
-
-              {r.cascade && (
-                <div className="mt-3 panel-2 px-2.5 py-1.5 text-[10px] font-mono text-high border-high/30">
-                  ↳ {r.cascade}
-                </div>
-              )}
-
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                {r.subs.map(([name, v]) => (
-                  <div key={name} className="panel-2 p-2">
-                    <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">{name}</div>
-                    <div className={`text-sm font-mono font-semibold ${v > 70 ? "text-critical" : v > 40 ? "text-high" : "text-medium"}`}>{v}%</div>
-                    <div className="mt-1 h-0.5 bg-background rounded overflow-hidden">
-                      <div className={`h-full ${v > 70 ? "bg-critical" : v > 40 ? "bg-high" : "bg-medium"}`} style={{ width: `${v}%` }} />
+                  <div className="mt-3 flex items-end gap-6">
+                    <div>
+                      <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Degradation</div>
+                      <div className={`text-2xl font-display font-bold ${degClass(deg)}`}>{deg.toFixed(1)}%</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Recovery</div>
+                      <div className="text-2xl font-display font-bold">{r.recovery_time_hours.toFixed(1)}h</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Cost</div>
+                      <div className="text-2xl font-display font-bold">${Math.round(r.estimated_cost_usd).toLocaleString()}</div>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
 
-        <div className="mt-4 flex justify-end">
-          <button className="inline-flex items-center gap-2 px-5 py-3 rounded-md bg-gradient-to-r from-primary to-accent text-primary-foreground font-display font-bold tracking-wider hover:brightness-110 shadow-[0_0_30px_-8px_oklch(0.78_0.16_195_/_0.6)]">
-            EXPORT CONSTELLATION REPORT
-          </button>
+                  <div className="mt-2 h-1 rounded bg-background overflow-hidden">
+                    <div className={`h-full ${degBar(deg)}`} style={{ width: `${Math.min(100, deg)}%` }} />
+                  </div>
+
+                  {impacts.length > 0 && (
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      {impacts.map(([name, v]) => (
+                        <div key={name} className="panel-2 p-2">
+                          <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">{name}</div>
+                          <div className={`text-sm font-mono font-semibold ${degClass(v)}`}>{v.toFixed(1)}%</div>
+                          <div className="mt-1 h-0.5 bg-background rounded overflow-hidden">
+                            <div className={`h-full ${degBar(v)}`} style={{ width: `${Math.min(100, v)}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 flex justify-end">
+            <button
+              disabled
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-md bg-gradient-to-r from-primary to-accent text-primary-foreground font-display font-bold tracking-wider opacity-50 cursor-not-allowed shadow-[0_0_30px_-8px_oklch(0.78_0.16_195_/_0.6)]"
+            >
+              EXPORT CONSTELLATION REPORT
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </AppShell>
   );
 }
