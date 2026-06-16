@@ -664,6 +664,154 @@ const TARGETS = [
   { name: "WorldView-3", norad_id: 40115 },
 ];
 
+const SATELLITE_PRESETS: Record<number, any> = {
+  41866: {
+    mission_type: "earth_observation",
+    adcs: { pointing_accuracy_deg:0.01, num_reaction_wheels:4, wheel_max_momentum_nms:75, num_star_trackers:2, star_tracker_accuracy_arcsec:1.0, num_gyroscopes:3, gyro_drift_deg_per_hour:0.1, slew_rate_deg_per_sec:0.8, num_sun_sensors:4, num_magnetometers:2, num_magnetorquers:2, has_thrusters:true, has_anomaly_detection:true, backup_adcs_mode:"thruster", backup_adcs_pointing_deg:1.0, backup_adcs_switchover_s:60, onboard_autonomy_level:"medium", anomaly_detection_threshold_s:30 },
+    eps: { solar_panel_area_m2:15.0, solar_cell_efficiency:0.29, num_solar_arrays:2, battery_capacity_wh:3000, num_battery_cells:60, battery_voltage_v:36, num_power_buses:2, nominal_power_draw_w:2200, peak_power_draw_w:4000, redundant_power_system:true },
+    comms: { num_s_band_antennas:2, s_band_gain_dbi:10, s_band_frequency_mhz:2041, s_band_transmit_power_w:20, s_band_max_data_rate_mbps:2, num_x_band_antennas:2, x_band_gain_dbi:28, x_band_frequency_mhz:8200, x_band_transmit_power_w:50, x_band_max_data_rate_mbps:50, receiver_sensitivity_dbm:-120, has_ka_band:false, encryption_strength:"AES-128", has_multi_gnss:true, spread_spectrum:"DSSS", command_authentication:"hmac", modulation_scheme:"BPSK", gps_anti_jam_db:0, fb_ka:false, fb_x:true, fb_s:true, fb_uhf:false },
+    thermal: { radiator_area_m2:5.5, radiator_emissivity:0.85, num_heaters:14, heater_power_w:10, mli_layers:16, min_operating_temp_c:-25, max_operating_temp_c:55, battery_min_temp_c:-5, battery_max_temp_c:35, num_heat_pipes:6, thermal_coating:"White Paint" },
+    payload: { optical_aperture_m:0.5, optical_focal_length_m:5.0, ground_sample_distance_m:0.5, data_rate_gbps:0.05, onboard_storage_gb:500, payload_power_w:4000, pointing_requirement_deg:0.01 },
+    ground_segment: { num_ground_stations:4, uplink_frequency_mhz:2041, downlink_frequency_mhz:8200, antenna_gain_dbi:20, ground_tx_power_w:2000, contact_window_min:24, passes_per_day:24, has_crosslinks:false, encryption_level:"AES-128", network_segmentation:"basic" },
+    financial: { hourly_downtime_rate:30000, asset_value_usd:500000000, recovery_ops_rate:5000 },
+  },
+  39634: {
+    mission_type: "earth_observation",
+    adcs: { pointing_accuracy_deg:0.01, num_reaction_wheels:4, wheel_max_momentum_nms:45, num_star_trackers:2, star_tracker_accuracy_arcsec:2, num_gyroscopes:3, gyro_drift_deg_per_hour:0.5, slew_rate_deg_per_sec:2.0, num_sun_sensors:4, num_magnetometers:2, num_magnetorquers:3, has_thrusters:true, has_anomaly_detection:true, backup_adcs_mode:"thruster", backup_adcs_pointing_deg:1.0, backup_adcs_switchover_s:60, onboard_autonomy_level:"medium", anomaly_detection_threshold_s:30 },
+    eps: { solar_panel_area_m2:11.7, solar_cell_efficiency:0.28, num_solar_arrays:2, battery_capacity_wh:2400, num_battery_cells:60, battery_voltage_v:28, num_power_buses:2, nominal_power_draw_w:1800, peak_power_draw_w:3870, redundant_power_system:true },
+    comms: { num_s_band_antennas:2, s_band_gain_dbi:8, s_band_frequency_mhz:2050, s_band_transmit_power_w:10, s_band_max_data_rate_mbps:2, num_x_band_antennas:2, x_band_gain_dbi:25, x_band_frequency_mhz:8100, x_band_transmit_power_w:40, x_band_max_data_rate_mbps:520, receiver_sensitivity_dbm:-115, has_ka_band:false, encryption_strength:"AES-128", has_multi_gnss:true, spread_spectrum:"FHSS", command_authentication:"hmac", modulation_scheme:"BPSK", gps_anti_jam_db:0, fb_ka:false, fb_x:true, fb_s:true, fb_uhf:false },
+    thermal: { radiator_area_m2:4.5, radiator_emissivity:0.85, num_heaters:12, heater_power_w:8, mli_layers:15, min_operating_temp_c:-20, max_operating_temp_c:50, battery_min_temp_c:-5, battery_max_temp_c:35, num_heat_pipes:6, thermal_coating:"White Paint" },
+    payload: { optical_aperture_m:0.4, optical_focal_length_m:0.82, ground_sample_distance_m:5, data_rate_gbps:0.52, onboard_storage_gb:1410, payload_power_w:1000, pointing_requirement_deg:0.1 },
+    ground_segment: { num_ground_stations:5, uplink_frequency_mhz:2050, downlink_frequency_mhz:8100, antenna_gain_dbi:20, ground_tx_power_w:2000, contact_window_min:10, passes_per_day:7, has_crosslinks:false, encryption_level:"AES-128", network_segmentation:"basic" },
+    financial: { hourly_downtime_rate:85000, asset_value_usd:380000000, recovery_ops_rate:2500 },
+  },
+};
+
+function applyPreset(form: FormState, preset: any): FormState {
+  const f: FormState = JSON.parse(JSON.stringify(form));
+  if (preset.mission_type) f.mission_type = toLabel(MISSION_MAP, preset.mission_type, f.mission_type);
+
+  const a = preset.adcs ?? {};
+  f.adcs = {
+    ...f.adcs,
+    pointing_accuracy: a.pointing_accuracy_deg ?? f.adcs.pointing_accuracy,
+    reaction_wheels: a.num_reaction_wheels ?? f.adcs.reaction_wheels,
+    wheel_momentum: a.wheel_max_momentum_nms ?? f.adcs.wheel_momentum,
+    star_trackers: a.num_star_trackers ?? f.adcs.star_trackers,
+    st_accuracy: a.star_tracker_accuracy_arcsec ?? f.adcs.st_accuracy,
+    gyroscopes: a.num_gyroscopes ?? f.adcs.gyroscopes,
+    gyro_drift: a.gyro_drift_deg_per_hour ?? f.adcs.gyro_drift,
+    slew_rate: a.slew_rate_deg_per_sec ?? f.adcs.slew_rate,
+    sun_sensors: a.num_sun_sensors ?? f.adcs.sun_sensors,
+    magnetometers: a.num_magnetometers ?? f.adcs.magnetometers,
+    magnetorquers: a.num_magnetorquers ?? f.adcs.magnetorquers,
+    has_thrusters: typeof a.has_thrusters === "boolean" ? a.has_thrusters : f.adcs.has_thrusters,
+    anomaly_detection: typeof a.has_anomaly_detection === "boolean" ? a.has_anomaly_detection : f.adcs.anomaly_detection,
+    backup_mode: toLabel(BACKUP_MODE_MAP, a.backup_adcs_mode, f.adcs.backup_mode),
+    backup_pointing: a.backup_adcs_pointing_deg ?? f.adcs.backup_pointing,
+    switchover_time: a.backup_adcs_switchover_s ?? f.adcs.switchover_time,
+    autonomy: toLabel(AUTONOMY_MAP, a.onboard_autonomy_level, f.adcs.autonomy),
+    detection_threshold: a.anomaly_detection_threshold_s ?? f.adcs.detection_threshold,
+  };
+
+  const e = preset.eps ?? {};
+  f.eps = {
+    ...f.eps,
+    solar_panel_area: e.solar_panel_area_m2 ?? f.eps.solar_panel_area,
+    cell_efficiency: typeof e.solar_cell_efficiency === "number" ? e.solar_cell_efficiency : f.eps.cell_efficiency,
+    solar_arrays: e.num_solar_arrays ?? f.eps.solar_arrays,
+    battery_wh: e.battery_capacity_wh ?? f.eps.battery_wh,
+    battery_cells: e.num_battery_cells ?? f.eps.battery_cells,
+    battery_voltage: e.battery_voltage_v ?? f.eps.battery_voltage,
+    power_buses: e.num_power_buses ?? f.eps.power_buses,
+    nominal_draw: e.nominal_power_draw_w ?? f.eps.nominal_draw,
+    peak_draw: e.peak_power_draw_w ?? f.eps.peak_draw,
+    redundant_power: typeof e.redundant_power_system === "boolean" ? e.redundant_power_system : f.eps.redundant_power,
+  };
+
+  const c = preset.comms ?? {};
+  f.comms = {
+    ...f.comms,
+    s_antennas: c.num_s_band_antennas ?? f.comms.s_antennas,
+    s_gain: c.s_band_gain_dbi ?? f.comms.s_gain,
+    s_freq: c.s_band_frequency_mhz ?? f.comms.s_freq,
+    s_tx_power: c.s_band_transmit_power_w ?? f.comms.s_tx_power,
+    s_data: c.s_band_max_data_rate_mbps ?? f.comms.s_data,
+    x_antennas: c.num_x_band_antennas ?? f.comms.x_antennas,
+    x_gain: c.x_band_gain_dbi ?? f.comms.x_gain,
+    x_freq: c.x_band_frequency_mhz ?? f.comms.x_freq,
+    x_tx_power: c.x_band_transmit_power_w ?? f.comms.x_tx_power,
+    x_data: c.x_band_max_data_rate_mbps ?? f.comms.x_data,
+    rx_sensitivity: c.receiver_sensitivity_dbm ?? f.comms.rx_sensitivity,
+    has_ka: typeof c.has_ka_band === "boolean" ? c.has_ka_band : f.comms.has_ka,
+    multi_gnss: typeof c.has_multi_gnss === "boolean" ? c.has_multi_gnss : f.comms.multi_gnss,
+    encryption: typeof c.encryption_strength === "string" ? c.encryption_strength : f.comms.encryption,
+    spread_spectrum: typeof c.spread_spectrum === "string" ? c.spread_spectrum : f.comms.spread_spectrum,
+    gps_aj_margin: c.gps_anti_jam_db ?? f.comms.gps_aj_margin,
+    modulation: typeof c.modulation_scheme === "string" ? c.modulation_scheme : f.comms.modulation,
+    command_auth: toLabel(COMMAND_AUTH_MAP, c.command_authentication, f.comms.command_auth),
+    fallback_chain: {
+      ka: typeof c.fb_ka === "boolean" ? c.fb_ka : f.comms.fallback_chain.ka,
+      x: typeof c.fb_x === "boolean" ? c.fb_x : f.comms.fallback_chain.x,
+      s: typeof c.fb_s === "boolean" ? c.fb_s : f.comms.fallback_chain.s,
+      uhf: typeof c.fb_uhf === "boolean" ? c.fb_uhf : f.comms.fallback_chain.uhf,
+    },
+  };
+
+  const t = preset.thermal ?? {};
+  f.thermal = {
+    ...f.thermal,
+    radiator_area: t.radiator_area_m2 ?? f.thermal.radiator_area,
+    emissivity: t.radiator_emissivity ?? f.thermal.emissivity,
+    heaters: t.num_heaters ?? f.thermal.heaters,
+    heater_power: t.heater_power_w ?? f.thermal.heater_power,
+    mli_layers: t.mli_layers ?? f.thermal.mli_layers,
+    min_op_temp: t.min_operating_temp_c ?? f.thermal.min_op_temp,
+    max_op_temp: t.max_operating_temp_c ?? f.thermal.max_op_temp,
+    batt_min_temp: t.battery_min_temp_c ?? f.thermal.batt_min_temp,
+    batt_max_temp: t.battery_max_temp_c ?? f.thermal.batt_max_temp,
+    heat_pipes: t.num_heat_pipes ?? f.thermal.heat_pipes,
+    coating: typeof t.thermal_coating === "string" ? t.thermal_coating : f.thermal.coating,
+  };
+
+  const p = preset.payload ?? {};
+  f.payload = {
+    ...f.payload,
+    optical_aperture: p.optical_aperture_m ?? f.payload.optical_aperture,
+    focal_length: p.optical_focal_length_m ?? f.payload.focal_length,
+    gsd: p.ground_sample_distance_m ?? f.payload.gsd,
+    data_rate: p.data_rate_gbps ?? f.payload.data_rate,
+    storage: p.onboard_storage_gb ?? f.payload.storage,
+    power_draw: p.payload_power_w ?? f.payload.power_draw,
+    pointing_req: p.pointing_requirement_deg ?? f.payload.pointing_req,
+  };
+
+  const g = preset.ground_segment ?? {};
+  f.ground_segment = {
+    ...f.ground_segment,
+    ground_stations: g.num_ground_stations ?? f.ground_segment.ground_stations,
+    uplink_freq: g.uplink_frequency_mhz ?? f.ground_segment.uplink_freq,
+    downlink_freq: g.downlink_frequency_mhz ?? f.ground_segment.downlink_freq,
+    antenna_gain: g.antenna_gain_dbi ?? f.ground_segment.antenna_gain,
+    ground_tx_power: g.ground_tx_power_w ?? f.ground_segment.ground_tx_power,
+    contact_window: g.contact_window_min ?? f.ground_segment.contact_window,
+    passes_per_day: g.passes_per_day ?? f.ground_segment.passes_per_day,
+    crosslinks: typeof g.has_crosslinks === "boolean" ? g.has_crosslinks : f.ground_segment.crosslinks,
+    encryption: typeof g.encryption_level === "string" ? g.encryption_level : f.ground_segment.encryption,
+    net_segmentation: toLabel(NET_SEG_MAP, g.network_segmentation, f.ground_segment.net_segmentation),
+  };
+
+  const fin = preset.financial ?? {};
+  f.financial = {
+    ...f.financial,
+    downtime_rate: fin.hourly_downtime_rate ?? f.financial.downtime_rate,
+    asset_value: typeof fin.asset_value_usd === "number" ? fin.asset_value_usd / 1_000_000 : f.financial.asset_value,
+    recovery_ops_rate: fin.recovery_ops_rate ?? f.financial.recovery_ops_rate,
+  };
+
+  return f;
+}
+
 // ---------- main ----------
 function Configure() {
   const [form, setForm] = useState<FormState>(DEFAULTS);
@@ -769,15 +917,24 @@ function Configure() {
       const res = await apiFetch(`/api/satellite/${target.norad_id}/orbital_params`);
       if (!res.ok) throw new Error("Failed");
       const data = await res.json();
-      setForm((f) => ({
-        ...f,
-        altitude: typeof data.altitude_km === "number" ? Math.round(data.altitude_km * 100) / 100 : f.altitude,
-        inclination: typeof data.inclination_deg === "number" ? Math.round(data.inclination_deg * 10) / 10 : f.inclination,
-        orbit_type: typeof data.orbit_type === "string" ? data.orbit_type : f.orbit_type,
-        norad_id: target.norad_id,
-      }));
+      const preset = SATELLITE_PRESETS[target.norad_id];
+      setForm((f) => {
+        const base = preset ? applyPreset(f, preset) : f;
+        return {
+          ...base,
+          altitude: typeof data.altitude_km === "number" ? Math.round(data.altitude_km * 100) / 100 : base.altitude,
+          inclination: typeof data.inclination_deg === "number" ? Math.round(data.inclination_deg * 10) / 10 : base.inclination,
+          orbit_type: typeof data.orbit_type === "string" ? data.orbit_type : base.orbit_type,
+          norad_id: target.norad_id,
+        };
+      });
       setSelectedTarget(target.name);
-      toast.success(`Loaded orbital data: ${data.tle_name ?? target.name}`);
+      const displayName = data.tle_name ?? target.name;
+      if (preset) {
+        toast.success(`Loaded full config: ${displayName}`);
+      } else {
+        toast.success(`Loaded orbital data: ${displayName}`);
+      }
     } catch {
       toast.error("Failed to fetch orbital data");
     } finally {
