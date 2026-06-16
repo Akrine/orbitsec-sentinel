@@ -125,6 +125,7 @@ function Attack() {
   // result
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [completedAt, setCompletedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const activeAttack = useMemo(() => LIVE.find((l) => l.id === attack)!, [attack]);
