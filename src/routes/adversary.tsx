@@ -57,6 +57,7 @@ type AdversaryResult = {
   total_cost_usd: number;
   attack_sequence: string[];
   stop_reason: string;
+  pdf_b64?: string | null;
 };
 
 function healthClass(v: number) {
