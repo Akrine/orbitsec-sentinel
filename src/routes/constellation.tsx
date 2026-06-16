@@ -130,6 +130,7 @@ function Constellation() {
   const [sens, setSens] = useState(true);
 
   const [running, setRunning] = useState(false);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
   const [result, setResult] = useState<ConstellationResponse | null>(null);
 
   // Load saved configs once
@@ -562,10 +563,43 @@ function Constellation() {
 
           <div className="mt-4 flex justify-end">
             <button
-              disabled
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-md bg-gradient-to-r from-primary to-accent text-primary-foreground font-display font-bold tracking-wider opacity-50 cursor-not-allowed shadow-[0_0_30px_-8px_oklch(0.78_0.16_195_/_0.6)]"
+              onClick={async () => {
+                if (!result) return;
+                setGeneratingPDF(true);
+                try {
+                  const token = getToken();
+                  const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:8001";
+                  const res = await fetch(`${base}/api/constellation/report`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                    },
+                    body: JSON.stringify({ constellation_result: result }),
+                  });
+                  if (!res.ok) {
+                    const txt = await res.text();
+                    throw new Error(`Report generation failed (${res.status}): ${txt.slice(0, 160)}`);
+                  }
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = "constellation_report.pdf";
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                  URL.revokeObjectURL(url);
+                } catch (e: any) {
+                  toast.error(e?.message ?? "Failed to generate constellation report");
+                } finally {
+                  setGeneratingPDF(false);
+                }
+              }}
+              disabled={generatingPDF}
+              className={`inline-flex items-center gap-2 px-5 py-3 rounded-md bg-gradient-to-r from-primary to-accent text-primary-foreground font-display font-bold tracking-wider shadow-[0_0_30px_-8px_oklch(0.78_0.16_195_/_0.6)] ${generatingPDF ? "opacity-50 cursor-not-allowed" : "hover:brightness-110 cursor-pointer"}`}
             >
-              EXPORT CONSTELLATION REPORT
+              {generatingPDF ? "GENERATING PDF..." : "EXPORT CONSTELLATION REPORT"}
             </button>
           </div>
         </div>
