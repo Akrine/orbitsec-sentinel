@@ -655,6 +655,15 @@ function serializeConfig(form: FormState): Record<string, unknown> {
   };
 }
 
+const TARGETS = [
+  { name: "ISS", norad_id: 25544 },
+  { name: "Hubble", norad_id: 20580 },
+  { name: "GPS BIIA-10", norad_id: 22877 },
+  { name: "GOES-16", norad_id: 41866 },
+  { name: "Sentinel-1A", norad_id: 39634 },
+  { name: "WorldView-3", norad_id: 40115 },
+];
+
 // ---------- main ----------
 function Configure() {
   const [form, setForm] = useState<FormState>(DEFAULTS);
@@ -681,6 +690,8 @@ function Configure() {
   const [error, setError] = useState(false);
   const [configName, setConfigName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
+  const [loadingTarget, setLoadingTarget] = useState<string | null>(null);
 
   const loadConfigs = async () => {
     setLoading(true);
@@ -752,6 +763,28 @@ function Configure() {
     }
   };
 
+  const handleTargetSelect = async (target: { name: string; norad_id: number }) => {
+    setLoadingTarget(target.name);
+    try {
+      const res = await apiFetch(`/api/satellite/${target.norad_id}/orbital_params`);
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      setForm((f) => ({
+        ...f,
+        altitude: typeof data.altitude_km === "number" ? Math.round(data.altitude_km * 100) / 100 : f.altitude,
+        inclination: typeof data.inclination_deg === "number" ? Math.round(data.inclination_deg * 10) / 10 : f.inclination,
+        orbit_type: typeof data.orbit_type === "string" ? data.orbit_type : f.orbit_type,
+        norad_id: target.norad_id,
+      }));
+      setSelectedTarget(target.name);
+      toast.success(`Loaded orbital data: ${data.tle_name ?? target.name}`);
+    } catch {
+      toast.error("Failed to fetch orbital data");
+    } finally {
+      setLoadingTarget(null);
+    }
+  };
+
   const adcs = form.adcs;
   const eps = form.eps;
   const comms = form.comms;
@@ -764,6 +797,46 @@ function Configure() {
       <div className="grid grid-cols-1 xl:grid-cols-[340px_1fr] gap-4">
         {/* LEFT: Saved + TLE */}
         <div className="space-y-4">
+          <Panel
+            title="Target Selection"
+            action={
+              <span className="text-[10px] font-mono text-muted-foreground">
+                {TARGETS.length} TARGETS
+              </span>
+            }
+          >
+            <div className="divide-y divide-border">
+              {TARGETS.map((t) => {
+                const isSelected = selectedTarget === t.name;
+                const isLoading = loadingTarget === t.name;
+                return (
+                  <button
+                    key={t.name}
+                    onClick={() => handleTargetSelect(t)}
+                    disabled={isLoading}
+                    className={`w-full text-left p-3.5 flex items-center gap-2.5 cursor-pointer disabled:opacity-60 ${
+                      isSelected
+                        ? "bg-primary/10 border-l-2 border-primary"
+                        : "hover:bg-surface-2/50 border-l-2 border-transparent"
+                    }`}
+                  >
+                    <div className="h-8 w-8 rounded-md bg-primary/10 border border-primary/30 flex items-center justify-center text-primary">
+                      <span className="text-[10px] font-mono font-bold">TGT</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold font-mono truncate">{t.name}</div>
+                    </div>
+                    {isLoading ? (
+                      <span className="text-[10px] font-mono text-muted-foreground">Loading…</span>
+                    ) : (
+                      <span className="text-[10px] font-mono text-muted-foreground">{t.norad_id}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </Panel>
+
           <Panel
             title="Saved Configurations"
             action={
