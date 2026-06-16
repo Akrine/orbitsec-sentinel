@@ -165,8 +165,8 @@ function Attack() {
   }
 
   async function go() {
-    if (!sat) { toast.error("Select a target asset"); return; }
-    const cfg = configs[sat] ?? {};
+    if (!hasActive || !activeName || !activeConfig) { toast.error("No active satellite — configure one first"); return; }
+    const cfg = activeConfig as any;
     setRunning(true);
     setError(null);
     setResult(null);
@@ -178,7 +178,7 @@ function Attack() {
         duration_seconds: duration,
         uncertainty: uq,
         uncertainty_samples: 5,
-        satellite_name: sat,
+        satellite_name: activeName,
         satellite_config: cfg,
         altitude_km: cfg?.altitude_km,
         inclination_deg: cfg?.inclination_deg,
