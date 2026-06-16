@@ -483,7 +483,7 @@ function Attack() {
           <Panel title="Mission Brief">
             <div className="p-5 space-y-2 text-xs font-mono">
               <div className="flex justify-between"><span className="text-muted-foreground">MODE</span><span className="text-primary">SINGLE SAT</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">TARGET</span><span>{sat}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">TARGET</span><span>{activeName ?? "—"}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">VECTOR</span><span className="text-primary">{activeAttack.name}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">ACTOR</span><span className="text-high">{ACTORS.find((a) => a.id === actor)?.name}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">SEVERITY</span><span>{severity}%</span></div>
