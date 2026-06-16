@@ -257,22 +257,25 @@ function Constellation() {
                   value={pickName}
                   onChange={(e) => setPickName(e.target.value)}
                   className={inputCls}
-                  disabled={available.length === 0 || sats.length >= 12}
+                  disabled={savedConfigs.length === 0 || atMax}
                 >
-                  {available.length === 0 ? (
-                    <option value="">No more saved configs</option>
+                  {savedConfigs.length === 0 ? (
+                    <option value="">No saved configs</option>
                   ) : (
-                    available.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)
+                    savedConfigs.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)
                   )}
                 </select>
                 <button
                   onClick={addSat}
-                  disabled={sats.length >= 12 || available.length === 0}
+                  disabled={atMax || savedConfigs.length === 0}
                   className="panel-2 px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-primary hover:text-primary/80 disabled:opacity-40"
                 >
                   Add
                 </button>
               </div>
+              {atMax && (
+                <div className="text-[10px] font-mono text-muted-foreground">Maximum 12 satellites</div>
+              )}
 
               {sats.length === 0 && (
                 <div className="text-xs font-mono text-muted-foreground text-center py-8 panel-2">
