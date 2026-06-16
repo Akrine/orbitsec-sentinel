@@ -959,6 +959,11 @@ function Configure() {
 
   return (
     <AppShell title="Satellite Configuration" subtitle="ASSET PROFILE BUILDER · v3">
+      {activeName && (
+        <div className="mb-3 text-[10px] font-mono text-success/90 tracking-wider">
+          ACTIVE FOR SIMULATION: {activeName}
+        </div>
+      )}
       <div className="grid grid-cols-1 xl:grid-cols-[340px_1fr] gap-4">
         {/* LEFT: Saved + TLE */}
         <div className="space-y-4">
@@ -1304,11 +1309,6 @@ function Configure() {
             <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md panel-2 text-sm hover:border-primary/40">
               Import TLE / JSON
             </button>
-            {activeName && (
-              <span className="ml-2 text-[10px] font-mono text-success/90">
-                ✓ Active for simulation: {activeName}
-              </span>
-            )}
           </div>
         </div>
       </div>
