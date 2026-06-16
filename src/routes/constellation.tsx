@@ -147,25 +147,28 @@ function Constellation() {
           config: c.config,
         }));
         setSats(initial);
-        const used = new Set(initial.map((s) => s.name));
-        const next = data.find((c) => !used.has(c.name));
-        setPickName(next?.name ?? "");
+        setPickName(data[0]?.name ?? "");
       } catch (e: any) {
         toast.error(e?.message ?? "Failed to load saved configurations");
       }
     })();
   }, []);
 
-  const usedNames = new Set(sats.map((s) => s.name));
-  const available = savedConfigs.filter((c) => !usedNames.has(c.name));
+  const atMax = sats.length >= 12;
 
   const addSat = () => {
-    if (sats.length >= 12) return;
-    const pick = available.find((c) => c.name === pickName) ?? available[0];
+    if (atMax) return;
+    const pick = savedConfigs.find((c) => c.name === pickName) ?? savedConfigs[0];
     if (!pick) return;
-    setSats([...sats, { id: `r${Date.now()}_${pick.name}`, name: pick.name, config: pick.config }]);
-    const remaining = available.filter((c) => c.name !== pick.name);
-    setPickName(remaining[0]?.name ?? "");
+    const baseName = pick.name;
+    const existingNames = new Set(sats.map((s) => s.name));
+    let displayName = baseName;
+    if (existingNames.has(baseName)) {
+      let n = 2;
+      while (existingNames.has(`${baseName} #${n}`)) n++;
+      displayName = `${baseName} #${n}`;
+    }
+    setSats([...sats, { id: `r${Date.now()}_${displayName}`, name: displayName, config: pick.config }]);
   };
   const removeSat = (id: string) => setSats(sats.filter((s) => s.id !== id));
 
@@ -254,22 +257,25 @@ function Constellation() {
                   value={pickName}
                   onChange={(e) => setPickName(e.target.value)}
                   className={inputCls}
-                  disabled={available.length === 0 || sats.length >= 12}
+                  disabled={savedConfigs.length === 0 || atMax}
                 >
-                  {available.length === 0 ? (
-                    <option value="">No more saved configs</option>
+                  {savedConfigs.length === 0 ? (
+                    <option value="">No saved configs</option>
                   ) : (
-                    available.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)
+                    savedConfigs.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)
                   )}
                 </select>
                 <button
                   onClick={addSat}
-                  disabled={sats.length >= 12 || available.length === 0}
+                  disabled={atMax || savedConfigs.length === 0}
                   className="panel-2 px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-primary hover:text-primary/80 disabled:opacity-40"
                 >
                   Add
                 </button>
               </div>
+              {atMax && (
+                <div className="text-[10px] font-mono text-muted-foreground">Maximum 12 satellites</div>
+              )}
 
               {sats.length === 0 && (
                 <div className="text-xs font-mono text-muted-foreground text-center py-8 panel-2">
