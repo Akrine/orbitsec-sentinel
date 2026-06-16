@@ -240,15 +240,15 @@ function Configure() {
                     <div className="mt-2.5 grid grid-cols-3 gap-1.5 text-[10px] font-mono">
                       <div className="panel-2 px-2 py-1">
                         <div className="text-muted-foreground">ENC</div>
-                        <div>{s.config?.enc ?? "—"}</div>
+                        <div>{String(s.config?.enc ?? "—")}</div>
                       </div>
                       <div className="panel-2 px-2 py-1">
                         <div className="text-muted-foreground">RW</div>
-                        <div>{s.config?.wheels ?? "—"}</div>
+                        <div>{String(s.config?.wheels ?? "—")}</div>
                       </div>
                       <div className="panel-2 px-2 py-1">
                         <div className="text-muted-foreground">MOD</div>
-                        <div>{s.config?.mod ?? "—"}</div>
+                        <div>{String(s.config?.mod ?? "—")}</div>
                       </div>
                     </div>
                     <div className="mt-2.5 flex gap-2">
