@@ -655,6 +655,15 @@ function serializeConfig(form: FormState): Record<string, unknown> {
   };
 }
 
+const TARGETS = [
+  { name: "ISS", norad_id: 25544 },
+  { name: "Hubble", norad_id: 20580 },
+  { name: "GPS BIIA-10", norad_id: 22877 },
+  { name: "GOES-16", norad_id: 41866 },
+  { name: "Sentinel-1A", norad_id: 39634 },
+  { name: "WorldView-3", norad_id: 40115 },
+];
+
 // ---------- main ----------
 function Configure() {
   const [form, setForm] = useState<FormState>(DEFAULTS);
@@ -681,6 +690,8 @@ function Configure() {
   const [error, setError] = useState(false);
   const [configName, setConfigName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
+  const [loadingTarget, setLoadingTarget] = useState<string | null>(null);
 
   const loadConfigs = async () => {
     setLoading(true);
