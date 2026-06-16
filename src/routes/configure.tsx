@@ -560,11 +560,19 @@ function Configure() {
           </Section>
 
           <div className="flex items-center gap-2 pt-2">
+            <div className="w-64">
+              <Input
+                placeholder="Config Name"
+                value={configName}
+                onChange={(e) => setConfigName(e.target.value)}
+              />
+            </div>
             <button
               onClick={handleSave}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md bg-success/10 border border-success/50 text-success text-sm font-semibold hover:bg-success/20"
+              disabled={saving}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md bg-success/10 border border-success/50 text-success text-sm font-semibold hover:bg-success/20 disabled:opacity-50"
             >
-              Save Config
+              {saving ? "Saving…" : "Save Config"}
             </button>
             <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md panel-2 text-sm hover:border-primary/40">
               Import TLE / JSON
