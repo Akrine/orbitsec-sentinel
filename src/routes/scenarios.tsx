@@ -92,6 +92,7 @@ type PhaseResult = {
 };
 
 type ScenarioResult = {
+  scenario_id?: string;
   scenario_name: string;
   scenario_description: string;
   scenario_success: boolean;
@@ -100,6 +101,7 @@ type ScenarioResult = {
   total_recovery_hours: number;
   total_cost_usd: number;
   phases: PhaseResult[];
+  pdf_b64?: string;
 };
 
 function Scenarios() {
