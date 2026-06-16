@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
 import { apiFetch } from "@/lib/api";
+import { useActiveSatellite } from "@/lib/activeSatellite";
 
 export const Route = createFileRoute("/attack")({
   head: () => ({
@@ -87,9 +88,8 @@ function Check({ checked, onChange, label }: { checked: boolean; onChange: (v: b
 }
 
 function Attack() {
-  const [configs, setConfigs] = useState<Record<string, any>>({});
-  const [configsLoading, setConfigsLoading] = useState(true);
-  const [sat, setSat] = useState<string>("");
+  const { activeName, activeConfig } = useActiveSatellite();
+  const hasActive = !!activeConfig && Object.keys(activeConfig).length > 0;
 
   const [attack, setAttack] = useState<AttackId>("ai-gnss");
   const [actor, setActor] = useState("apt");
@@ -129,26 +129,6 @@ function Attack() {
 
   const activeAttack = useMemo(() => LIVE.find((l) => l.id === attack)!, [attack]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await apiFetch("/api/configs");
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = (await res.json()) as { name: string; created_at: string; config: any }[];
-        if (cancelled) return;
-        const map: Record<string, any> = {};
-        for (const c of data) map[c.name] = c.config;
-        setConfigs(map);
-        if (data.length > 0) setSat(data[0].name);
-      } catch (e) {
-        if (!cancelled) toast.error("Failed to load target assets");
-      } finally {
-        if (!cancelled) setConfigsLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
 
   function buildAttackParams(): Record<string, any> {
     switch (attack) {
@@ -185,8 +165,8 @@ function Attack() {
   }
 
   async function go() {
-    if (!sat) { toast.error("Select a target asset"); return; }
-    const cfg = configs[sat] ?? {};
+    if (!hasActive || !activeName || !activeConfig) { toast.error("No active satellite — configure one first"); return; }
+    const cfg = activeConfig as any;
     setRunning(true);
     setError(null);
     setResult(null);
@@ -198,7 +178,7 @@ function Attack() {
         duration_seconds: duration,
         uncertainty: uq,
         uncertainty_samples: 5,
-        satellite_name: sat,
+        satellite_name: activeName,
         satellite_config: cfg,
         altitude_km: cfg?.altitude_km,
         inclination_deg: cfg?.inclination_deg,
@@ -230,21 +210,35 @@ function Attack() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         {/* LEFT/MAIN */}
         <div className="xl:col-span-2 space-y-4">
-          {/* Target asset */}
-          <Panel title="Target Asset" action={<Link to="/configure" className="text-[10px] font-mono uppercase tracking-wider text-primary hover:underline">Configure →</Link>}>
-            <div className="p-4 flex gap-2 flex-wrap">
-              {configsLoading && <div className="text-[11px] font-mono text-muted-foreground">Loading targets…</div>}
-              {!configsLoading && Object.keys(configs).length === 0 && (
-                <div className="text-[11px] font-mono text-muted-foreground">No saved configurations. <Link to="/configure" className="text-primary hover:underline">Create one →</Link></div>
+          {/* Active target */}
+          <Panel title="Active Target" action={<Link to="/configure" className="text-[10px] font-mono uppercase tracking-wider text-primary hover:underline">Configure in Satellite Config →</Link>}>
+            <div className="p-4">
+              {!hasActive && (
+                <div className="text-[12px] font-mono text-muted-foreground">
+                  No satellite configured. <Link to="/configure" className="text-primary hover:underline">Set one up in Satellite Config first.</Link>
+                </div>
               )}
-              {Object.keys(configs).map((s) => (
-                <button key={s} onClick={() => setSat(s)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-mono border transition-colors ${
-                    sat === s ? "bg-primary/15 border-primary text-primary text-glow" : "panel-2 text-muted-foreground hover:text-foreground"
-                  }`}>{s}</button>
-              ))}
+              {hasActive && (
+                <div className="space-y-3">
+                  <div className="text-lg font-display font-bold text-primary text-glow tracking-wide">{activeName}</div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px] font-mono">
+                    {[
+                      { k: "ORBIT", v: (activeConfig as any)?.orbit_type ?? "—" },
+                      { k: "ALTITUDE", v: (activeConfig as any)?.altitude_km != null ? `${(activeConfig as any).altitude_km} km` : "—" },
+                      { k: "INCLINATION", v: (activeConfig as any)?.inclination_deg != null ? `${(activeConfig as any).inclination_deg}°` : "—" },
+                      { k: "MISSION", v: (activeConfig as any)?.mission_type ?? "—" },
+                    ].map((s) => (
+                      <div key={s.k} className="panel-2 px-3 py-2">
+                        <div className="text-[9px] uppercase tracking-[0.14em] text-muted-foreground">{s.k}</div>
+                        <div className="mt-1 text-foreground">{String(s.v)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </Panel>
+
 
 
           {/* Attack dropdown */}
@@ -391,7 +385,7 @@ function Attack() {
 
           {/* Run buttons */}
           <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
-            <button onClick={go} disabled={running || configsLoading || !sat}
+            <button onClick={go} disabled={running || !hasActive}
               className="w-full inline-flex items-center justify-center gap-2 px-5 py-4 rounded-md font-display font-bold tracking-[0.2em] text-primary-foreground shadow-[0_0_40px_-8px_oklch(0.78_0.16_200_/_0.6)] disabled:opacity-60 disabled:cursor-not-allowed"
               style={{ background: "linear-gradient(90deg, oklch(0.65 0.16 200), oklch(0.78 0.16 200))" }}>
               {running ? "RUNNING SIMULATION…" : "RUN ATTACK SIMULATION"}
@@ -489,7 +483,7 @@ function Attack() {
           <Panel title="Mission Brief">
             <div className="p-5 space-y-2 text-xs font-mono">
               <div className="flex justify-between"><span className="text-muted-foreground">MODE</span><span className="text-primary">SINGLE SAT</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">TARGET</span><span>{sat}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">TARGET</span><span>{activeName ?? "—"}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">VECTOR</span><span className="text-primary">{activeAttack.name}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">ACTOR</span><span className="text-high">{ACTORS.find((a) => a.id === actor)?.name}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">SEVERITY</span><span>{severity}%</span></div>
