@@ -917,15 +917,24 @@ function Configure() {
       const res = await apiFetch(`/api/satellite/${target.norad_id}/orbital_params`);
       if (!res.ok) throw new Error("Failed");
       const data = await res.json();
-      setForm((f) => ({
-        ...f,
-        altitude: typeof data.altitude_km === "number" ? Math.round(data.altitude_km * 100) / 100 : f.altitude,
-        inclination: typeof data.inclination_deg === "number" ? Math.round(data.inclination_deg * 10) / 10 : f.inclination,
-        orbit_type: typeof data.orbit_type === "string" ? data.orbit_type : f.orbit_type,
-        norad_id: target.norad_id,
-      }));
+      const preset = SATELLITE_PRESETS[target.norad_id];
+      setForm((f) => {
+        const base = preset ? applyPreset(f, preset) : f;
+        return {
+          ...base,
+          altitude: typeof data.altitude_km === "number" ? Math.round(data.altitude_km * 100) / 100 : base.altitude,
+          inclination: typeof data.inclination_deg === "number" ? Math.round(data.inclination_deg * 10) / 10 : base.inclination,
+          orbit_type: typeof data.orbit_type === "string" ? data.orbit_type : base.orbit_type,
+          norad_id: target.norad_id,
+        };
+      });
       setSelectedTarget(target.name);
-      toast.success(`Loaded orbital data: ${data.tle_name ?? target.name}`);
+      const displayName = data.tle_name ?? target.name;
+      if (preset) {
+        toast.success(`Loaded full config: ${displayName}`);
+      } else {
+        toast.success(`Loaded orbital data: ${displayName}`);
+      }
     } catch {
       toast.error("Failed to fetch orbital data");
     } finally {
