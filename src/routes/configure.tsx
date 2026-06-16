@@ -798,6 +798,46 @@ function Configure() {
         {/* LEFT: Saved + TLE */}
         <div className="space-y-4">
           <Panel
+            title="Target Selection"
+            action={
+              <span className="text-[10px] font-mono text-muted-foreground">
+                {TARGETS.length} TARGETS
+              </span>
+            }
+          >
+            <div className="divide-y divide-border">
+              {TARGETS.map((t) => {
+                const isSelected = selectedTarget === t.name;
+                const isLoading = loadingTarget === t.name;
+                return (
+                  <button
+                    key={t.name}
+                    onClick={() => handleTargetSelect(t)}
+                    disabled={isLoading}
+                    className={`w-full text-left p-3.5 flex items-center gap-2.5 cursor-pointer disabled:opacity-60 ${
+                      isSelected
+                        ? "bg-primary/10 border-l-2 border-primary"
+                        : "hover:bg-surface-2/50 border-l-2 border-transparent"
+                    }`}
+                  >
+                    <div className="h-8 w-8 rounded-md bg-primary/10 border border-primary/30 flex items-center justify-center text-primary">
+                      <span className="text-[10px] font-mono font-bold">TGT</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold font-mono truncate">{t.name}</div>
+                    </div>
+                    {isLoading ? (
+                      <span className="text-[10px] font-mono text-muted-foreground">Loading…</span>
+                    ) : (
+                      <span className="text-[10px] font-mono text-muted-foreground">{t.norad_id}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </Panel>
+
+          <Panel
             title="Saved Configurations"
             action={
               <span className="text-[10px] font-mono text-muted-foreground">
