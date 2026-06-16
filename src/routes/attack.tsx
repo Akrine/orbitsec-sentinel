@@ -210,21 +210,35 @@ function Attack() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         {/* LEFT/MAIN */}
         <div className="xl:col-span-2 space-y-4">
-          {/* Target asset */}
-          <Panel title="Target Asset" action={<Link to="/configure" className="text-[10px] font-mono uppercase tracking-wider text-primary hover:underline">Configure →</Link>}>
-            <div className="p-4 flex gap-2 flex-wrap">
-              {configsLoading && <div className="text-[11px] font-mono text-muted-foreground">Loading targets…</div>}
-              {!configsLoading && Object.keys(configs).length === 0 && (
-                <div className="text-[11px] font-mono text-muted-foreground">No saved configurations. <Link to="/configure" className="text-primary hover:underline">Create one →</Link></div>
+          {/* Active target */}
+          <Panel title="Active Target" action={<Link to="/configure" className="text-[10px] font-mono uppercase tracking-wider text-primary hover:underline">Configure in Satellite Config →</Link>}>
+            <div className="p-4">
+              {!hasActive && (
+                <div className="text-[12px] font-mono text-muted-foreground">
+                  No satellite configured. <Link to="/configure" className="text-primary hover:underline">Set one up in Satellite Config first.</Link>
+                </div>
               )}
-              {Object.keys(configs).map((s) => (
-                <button key={s} onClick={() => setSat(s)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-mono border transition-colors ${
-                    sat === s ? "bg-primary/15 border-primary text-primary text-glow" : "panel-2 text-muted-foreground hover:text-foreground"
-                  }`}>{s}</button>
-              ))}
+              {hasActive && (
+                <div className="space-y-3">
+                  <div className="text-lg font-display font-bold text-primary text-glow tracking-wide">{activeName}</div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px] font-mono">
+                    {[
+                      { k: "ORBIT", v: (activeConfig as any)?.orbit_type ?? "—" },
+                      { k: "ALTITUDE", v: (activeConfig as any)?.altitude_km != null ? `${(activeConfig as any).altitude_km} km` : "—" },
+                      { k: "INCLINATION", v: (activeConfig as any)?.inclination_deg != null ? `${(activeConfig as any).inclination_deg}°` : "—" },
+                      { k: "MISSION", v: (activeConfig as any)?.mission_type ?? "—" },
+                    ].map((s) => (
+                      <div key={s.k} className="panel-2 px-3 py-2">
+                        <div className="text-[9px] uppercase tracking-[0.14em] text-muted-foreground">{s.k}</div>
+                        <div className="mt-1 text-foreground">{String(s.v)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </Panel>
+
 
 
           {/* Attack dropdown */}
