@@ -579,6 +579,137 @@ function Attack() {
                       </div>
                     </div>
                   )}
+
+                  {/* 8. Recovery timeline */}
+                  {r.engine && Array.isArray(r.recovery_timeline) && r.recovery_timeline.filter((p: any) => p?.status === "required").length > 0 && (() => {
+                    const phases = (r.recovery_timeline as any[]).filter((p) => p?.status === "required");
+                    const maxDur = Math.max(...phases.map((p) => Number(p.duration_hours) || 0), 0.0001);
+                    const total = phases.reduce((acc, p) => acc + (Number(p.duration_hours) || 0), 0);
+                    const barColor = (h: number) => h > 2 ? "oklch(0.65 0.22 22)" : h > 0.5 ? "oklch(0.78 0.16 75)" : "oklch(0.7 0.18 145)";
+                    return (
+                      <div>
+                        <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground mb-2">Recovery Timeline</div>
+                        <div className="space-y-2">
+                          {phases.map((p, i) => {
+                            const h = Number(p.duration_hours) || 0;
+                            const pct = (h / maxDur) * 100;
+                            return (
+                              <div key={i} className="panel-2 px-3 py-2">
+                                <div className="flex items-center justify-between text-xs font-mono mb-1.5">
+                                  <span className="truncate pr-2">{i + 1}. {p.description}</span>
+                                  <span>{h.toFixed(1)}h</span>
+                                </div>
+                                <div className="h-1.5 rounded-full bg-surface-2 border border-border overflow-hidden">
+                                  <div className="h-full rounded-full" style={{ width: `${pct}%`, background: barColor(h) }} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="mt-2 text-[11px] font-mono text-muted-foreground">Total Recovery: {total.toFixed(1)}h</div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* 9. Uncertainty bounds */}
+                  {r.uncertainty_bounds?.mission_degradation && (() => {
+                    const ub = r.uncertainty_bounds as any;
+                    const md = ub.mission_degradation;
+                    const rt = ub.recovery_time_hours;
+                    const subs = (ub.subsystem_impacts ?? {}) as Record<string, any>;
+                    const rows: { label: string; low: any; nom: any; high: any; suffix: string }[] = [];
+                    if (md) rows.push({ label: "Degradation", low: md.low, nom: md.nominal, high: md.high, suffix: "%" });
+                    if (rt) rows.push({ label: "Recovery Time", low: rt.low, nom: rt.nominal, high: rt.high, suffix: "h" });
+                    for (const s of subsystemOrder) {
+                      const v = subs[s];
+                      if (v && (v.low != null || v.nominal != null || v.high != null)) {
+                        rows.push({ label: s, low: v.low, nom: v.nominal, high: v.high, suffix: "%" });
+                      }
+                    }
+                    const fmt = (n: any, suf: string) => n != null ? `${Number(n).toFixed(1)}${suf}` : "—";
+                    return (
+                      <div>
+                        <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-cyan mb-2">
+                          Uncertainty Bounds ({ub.num_samples ?? "?"} LHS samples)
+                        </div>
+                        <div className="panel-2 overflow-hidden">
+                          <div className="grid grid-cols-4 text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground border-b border-border px-3 py-1.5">
+                            <div></div><div className="text-right">Low</div><div className="text-right">Nominal</div><div className="text-right">High</div>
+                          </div>
+                          {rows.map((r2) => (
+                            <div key={r2.label} className="grid grid-cols-4 text-xs font-mono px-3 py-1.5 border-b border-border/40 last:border-b-0">
+                              <div>{r2.label}</div>
+                              <div className="text-right text-muted-foreground">{fmt(r2.low, r2.suffix)}</div>
+                              <div className="text-right">{fmt(r2.nom, r2.suffix)}</div>
+                              <div className="text-right text-muted-foreground">{fmt(r2.high, r2.suffix)}</div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-1.5 text-[10px] font-mono text-muted-foreground">Low — Nominal — High</div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* 10. Sensitivity */}
+                  {Array.isArray(r.sensitivity_ranking) && r.sensitivity_ranking.length > 0 && (() => {
+                    const ranking = r.sensitivity_ranking as [string, number][];
+                    const maxSwing = Math.max(...ranking.map(([, s]) => Math.abs(Number(s) || 0)), 0.0001);
+                    const barColor = (s: number) => s > 10 ? "oklch(0.65 0.22 22)" : s > 2 ? "oklch(0.78 0.16 75)" : "oklch(0.55 0.02 250)";
+                    return (
+                      <div>
+                        <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground mb-2">Sensitivity Analysis (±20% perturbation)</div>
+                        <div className="space-y-2">
+                          {ranking.map(([name, swing], i) => {
+                            const s = Math.abs(Number(swing) || 0);
+                            const pct = (s / maxSwing) * 100;
+                            return (
+                              <div key={`${name}-${i}`} className="panel-2 px-3 py-2">
+                                <div className="flex items-center justify-between text-xs font-mono mb-1.5">
+                                  <span className="truncate pr-2">{String(name).replace(/_/g, " ")}</span>
+                                  <span>{s.toFixed(1)}%</span>
+                                </div>
+                                <div className="h-1.5 rounded-full bg-surface-2 border border-border overflow-hidden">
+                                  <div className="h-full rounded-full" style={{ width: `${pct}%`, background: barColor(s) }} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="mt-2 text-[11px] font-mono text-muted-foreground">Degradation swing when parameter varied ±20%</div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* 11. Validation */}
+                  {r.validation_checks && (() => {
+                    const vc = r.validation_checks as Record<string, any>;
+                    const summary = vc._summary ?? {};
+                    const allPassed = !!summary.all_passed;
+                    const entries = Object.entries(vc).filter(([k]) => k !== "_summary");
+                    return (
+                      <div>
+                        <div className={`text-[10px] font-mono uppercase tracking-[0.14em] mb-2 ${allPassed ? "text-success" : "text-critical"}`}>
+                          {allPassed ? "Validation — All Checks Passed" : "Validation — Issues Detected"}
+                          {summary.total_checks != null && (
+                            <span className="text-muted-foreground"> ({summary.passed_count ?? 0}/{summary.total_checks})</span>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+                          {entries.map(([k, v]: [string, any]) => {
+                            const passed = !!v?.passed;
+                            return (
+                              <div key={k} className="flex items-center gap-2 text-xs font-mono panel-2 px-3 py-1.5">
+                                <span className={`text-[10px] font-mono uppercase tracking-[0.14em] px-1.5 py-0.5 rounded border ${
+                                  passed ? "border-success/60 text-success bg-success/10" : "border-critical/60 text-critical bg-critical/10"
+                                }`}>{passed ? "PASS" : "FAIL"}</span>
+                                <span className="truncate">{k.replace(/_/g, " ")}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </Panel>
             );
