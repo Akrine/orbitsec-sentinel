@@ -84,7 +84,10 @@ export function AppShell({ children, title, subtitle, actions }: {
                 <div className="text-xs font-medium truncate">Maj. M. Reyes</div>
                 <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">SOC · L4 Clearance</div>
               </div>
-              <button className="h-7 w-7 flex items-center justify-center rounded hover:bg-sidebar-accent text-muted-foreground">
+              <button
+                onClick={() => { logout(); navigate({ to: "/login" }); }}
+                className="h-7 w-7 flex items-center justify-center rounded hover:bg-sidebar-accent text-muted-foreground"
+              >
                 <span className="text-[10px] font-mono">OUT</span>
               </button>
             </div>
