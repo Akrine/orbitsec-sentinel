@@ -127,6 +127,36 @@ function Attack() {
   const [result, setResult] = useState<any>(null);
   const [completedAt, setCompletedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [expandedEvent, setExpandedEvent] = useState<number | null>(null);
+  const [subsysFilter, setSubsysFilter] = useState<Record<string, boolean>>({
+    ADCS: true, EPS: true, Comms: true, Thermal: true, Payload: true, GroundSegment: true,
+  });
+  const [pdfPending, setPdfPending] = useState(false);
+
+  async function exportPdf() {
+    if (!result) return;
+    setPdfPending(true);
+    try {
+      const res = await apiFetch("/api/generate_report", {
+        method: "POST",
+        body: JSON.stringify({ sim_result: result }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "orbitsec_report.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Failed to generate report");
+    } finally {
+      setPdfPending(false);
+    }
+  }
 
   const activeAttack = useMemo(() => LIVE.find((l) => l.id === attack)!, [attack]);
 
