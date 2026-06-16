@@ -409,13 +409,33 @@ function Scenarios() {
             </>
           )}
 
-          <button
-            disabled
-            className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md text-white font-display font-bold tracking-wider opacity-50 cursor-not-allowed"
-            style={{ background: "linear-gradient(135deg, oklch(0.55 0.2 250) 0%, oklch(0.42 0.18 260) 100%)" }}
-          >
-            DOWNLOAD SCENARIO PDF REPORT
-          </button>
+          {result?.pdf_b64 && (
+            <button
+              onClick={() => {
+                const ts = new Date().toISOString().replace(/[:.]/g, "-");
+                const filename = `orbitsec_scenario_${result.scenario_id ?? "unknown"}_${ts}.pdf`;
+                fetch(`data:application/pdf;base64,${result.pdf_b64}`)
+                  .then((r) => r.blob())
+                  .then((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                  })
+                  .catch(() => {
+                    toast.error("Failed to generate report");
+                  });
+              }}
+              className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md text-white font-display font-bold tracking-wider hover:brightness-110 cursor-pointer"
+              style={{ background: "linear-gradient(135deg, oklch(0.55 0.2 250) 0%, oklch(0.42 0.18 260) 100%)" }}
+            >
+              DOWNLOAD SCENARIO PDF REPORT
+            </button>
+          )}
         </div>
       </div>
     </AppShell>
