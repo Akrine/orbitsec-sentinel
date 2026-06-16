@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell, Panel } from "@/components/AppShell";
+import { apiFetch } from "@/lib/api";
 
 export const Route = createFileRoute("/configure")({
   head: () => ({
@@ -17,13 +18,6 @@ export const Route = createFileRoute("/configure")({
   component: Configure,
 });
 
-const SAVED = [
-  { name: "Sentinel-1A", orbit: "LEO · 693km · 98.18°", enc: 3, wheels: 4, mod: "QPSK" },
-  { name: "SBIRS-GEO-5", orbit: "GEO · 35,786km · 0.05°", enc: 5, wheels: 4, mod: "8PSK" },
-  { name: "WorldView-3", orbit: "LEO · 617km · 97.97°", enc: 4, wheels: 4, mod: "8PSK" },
-  { name: "GOES-18", orbit: "GEO · 35,786km · 0.12°", enc: 4, wheels: 4, mod: "QPSK" },
-  { name: "WGS-10", orbit: "GEO · 35,786km · 0.03°", enc: 5, wheels: 6, mod: "8PSK" },
-];
 
 // ---------- primitives ----------
 function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
@@ -176,6 +170,29 @@ function Configure() {
   const [firmware, setFirmware] = useState("Software Signature");
   const [region, setRegion] = useState("Global Distribution");
 
+  const [configs, setConfigs] = useState<Array<{ name: string; created_at: string; config: Record<string, unknown> }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch("/api/configs")
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Failed to load");
+        const data = await res.json();
+        if (!cancelled) setConfigs(data);
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleSave = () => {
     toast.success("Configuration saved", {
       description: "Asset profile committed to secure vault · OSEC-4821",
@@ -191,49 +208,61 @@ function Configure() {
             title="Saved Configurations"
             action={
               <span className="text-[10px] font-mono text-muted-foreground">
-                {SAVED.length} ASSETS
+                {configs.length} ASSETS
               </span>
             }
           >
-            <div className="divide-y divide-border">
-              {SAVED.map((s) => (
-                <div key={s.name} className="p-3.5 hover:bg-surface-2/50">
-                  <div className="flex items-center gap-2.5">
-                    <div className="h-8 w-8 rounded-md bg-primary/10 border border-primary/30 flex items-center justify-center text-primary">
-                      <span className="text-[10px] font-mono font-bold">SAT</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold font-mono truncate">{s.name}</div>
-                      <div className="text-[10px] font-mono text-muted-foreground truncate">
-                        {s.orbit}
+            {loading && (
+              <div className="p-3.5 text-[10px] font-mono text-muted-foreground">
+                Loading configurations…
+              </div>
+            )}
+            {error && (
+              <div className="p-3.5 text-[10px] font-mono text-red-400">
+                Failed to load configurations
+              </div>
+            )}
+            {!loading && !error && (
+              <div className="divide-y divide-border">
+                {configs.map((s) => (
+                  <div key={s.name} className="p-3.5 hover:bg-surface-2/50">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-8 w-8 rounded-md bg-primary/10 border border-primary/30 flex items-center justify-center text-primary">
+                        <span className="text-[10px] font-mono font-bold">SAT</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold font-mono truncate">{s.name}</div>
+                        <div className="text-[10px] font-mono text-muted-foreground truncate">
+                          {s.config?.mission_type ? String(s.config.mission_type) : new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="mt-2.5 grid grid-cols-3 gap-1.5 text-[10px] font-mono">
-                    <div className="panel-2 px-2 py-1">
-                      <div className="text-muted-foreground">ENC</div>
-                      <div>L{s.enc}</div>
+                    <div className="mt-2.5 grid grid-cols-3 gap-1.5 text-[10px] font-mono">
+                      <div className="panel-2 px-2 py-1">
+                        <div className="text-muted-foreground">ENC</div>
+                        <div>{String(s.config?.enc ?? "—")}</div>
+                      </div>
+                      <div className="panel-2 px-2 py-1">
+                        <div className="text-muted-foreground">RW</div>
+                        <div>{String(s.config?.wheels ?? "—")}</div>
+                      </div>
+                      <div className="panel-2 px-2 py-1">
+                        <div className="text-muted-foreground">MOD</div>
+                        <div>{String(s.config?.mod ?? "—")}</div>
+                      </div>
                     </div>
-                    <div className="panel-2 px-2 py-1">
-                      <div className="text-muted-foreground">RW</div>
-                      <div>{s.wheels}</div>
-                    </div>
-                    <div className="panel-2 px-2 py-1">
-                      <div className="text-muted-foreground">MOD</div>
-                      <div>{s.mod}</div>
+                    <div className="mt-2.5 flex gap-2">
+                      <button className="flex-1 text-xs py-1.5 rounded-md bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25">
+                        Load
+                      </button>
+                      <button className="px-3 py-1.5 rounded-md panel-2 text-muted-foreground hover:text-critical hover:border-critical/40">
+                        Delete
+                      </button>
                     </div>
                   </div>
-                  <div className="mt-2.5 flex gap-2">
-                    <button className="flex-1 text-xs py-1.5 rounded-md bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25">
-                      Load
-                    </button>
-                    <button className="px-3 py-1.5 rounded-md panel-2 text-muted-foreground hover:text-critical hover:border-critical/40">
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </Panel>
 
           <Panel
