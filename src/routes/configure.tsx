@@ -800,15 +800,15 @@ function Configure() {
                     <div className="mt-2.5 grid grid-cols-3 gap-1.5 text-[10px] font-mono">
                       <div className="panel-2 px-2 py-1">
                         <div className="text-muted-foreground">ENC</div>
-                        <div>{String((s.config as any)?.comms?.encryption ?? (s.config as any)?.enc ?? "—")}</div>
+                        <div>{String((s.config as any)?.comms?.encryption_strength ?? "—")}</div>
                       </div>
                       <div className="panel-2 px-2 py-1">
                         <div className="text-muted-foreground">RW</div>
-                        <div>{String((s.config as any)?.adcs?.reaction_wheels ?? (s.config as any)?.wheels ?? "—")}</div>
+                        <div>{String((s.config as any)?.adcs?.num_reaction_wheels ?? "—")}</div>
                       </div>
                       <div className="panel-2 px-2 py-1">
                         <div className="text-muted-foreground">MOD</div>
-                        <div>{String((s.config as any)?.comms?.modulation ?? (s.config as any)?.mod ?? "—")}</div>
+                        <div>{String((s.config as any)?.comms?.modulation_scheme ?? "—")}</div>
                       </div>
                     </div>
                     <div className="mt-2.5 flex gap-2">
