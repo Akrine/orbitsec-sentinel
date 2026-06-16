@@ -173,30 +173,104 @@ function Configure() {
   const [configs, setConfigs] = useState<Array<{ name: string; created_at: string; config: Record<string, unknown> }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [configName, setConfigName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const loadConfigs = async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await apiFetch("/api/configs");
+      if (!res.ok) throw new Error("Failed to load");
+      const data = await res.json();
+      setConfigs(data);
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    apiFetch("/api/configs")
-      .then(async (res) => {
-        if (!res.ok) throw new Error("Failed to load");
-        const data = await res.json();
-        if (!cancelled) setConfigs(data);
-      })
-      .catch(() => {
-        if (!cancelled) setError(true);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+    loadConfigs();
   }, []);
 
-  const handleSave = () => {
-    toast.success("Configuration saved", {
-      description: "Asset profile committed to secure vault · OSEC-4821",
-    });
+  const handleDelete = async (name: string) => {
+    if (!window.confirm(`Delete config '${name}'?`)) return;
+    try {
+      const res = await apiFetch(`/api/configs/${encodeURIComponent(name)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) throw new Error(data?.error || "Failed");
+      setConfigs((prev) => prev.filter((c) => c.name !== name));
+      toast.success("Configuration deleted");
+    } catch (err) {
+      toast.error("Failed to delete configuration", {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    }
+  };
+
+  const handleSave = async () => {
+    const name = configName.trim();
+    if (!name) {
+      toast.error("Enter a config name");
+      return;
+    }
+    const mission_type = mission.toLowerCase().replace(/\s+/g, "_");
+    const config = {
+      mission_type,
+      adcs: {
+        has_thrusters: hasThrusters,
+        anomaly_detection: anomalyDet,
+        backup_mode: backupMode,
+        autonomy,
+      },
+      eps: {
+        redundant_power: redundantPower,
+      },
+      comms: {
+        has_ka: hasKa,
+        encryption: commsEnc,
+        multi_gnss: multiGNSS,
+        spread_spectrum: spread,
+        modulation,
+        command_auth: cmdAuth,
+        fallback_chain: fallback,
+      },
+      thermal: {
+        coating,
+      },
+      payload: {},
+      ground_segment: {
+        crosslinks,
+        encryption: gsEnc,
+        net_segmentation: netSeg,
+        firmware_verification: firmware,
+        region,
+      },
+      financial: {},
+    };
+    setSaving(true);
+    try {
+      const res = await apiFetch("/api/configs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, config }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) throw new Error(data?.error || "Failed");
+      toast.success("Configuration saved");
+      setConfigName("");
+      await loadConfigs();
+    } catch (err) {
+      toast.error("Failed to save configuration", {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
