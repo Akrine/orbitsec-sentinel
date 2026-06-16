@@ -392,7 +392,7 @@ function Attack() {
               style={{ background: "linear-gradient(90deg, oklch(0.65 0.16 200), oklch(0.78 0.16 200))" }}>
               {running ? "RUNNING SIMULATION…" : "RUN ATTACK SIMULATION"}
             </button>
-            <button onClick={() => { setResult(null); setError(null); }}
+            <button onClick={() => { setResult(null); setError(null); setCompletedAt(null); }}
               className="inline-flex items-center justify-center gap-2 px-5 py-4 rounded-md font-display font-bold tracking-[0.2em] text-critical-foreground"
               style={{ background: "linear-gradient(90deg, oklch(0.55 0.22 22), oklch(0.7 0.24 22))" }}>
               CLEAR RESULTS
