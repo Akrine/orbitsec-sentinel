@@ -630,7 +630,11 @@ function Attack() {
                     return (
                       <div>
                         <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-cyan mb-2">
-                          Uncertainty Bounds ({ub.num_samples ?? "?"} LHS samples)
+                          {(() => {
+                            const n = ub.num_samples ?? ub.samples;
+                            if (n != null) return `Uncertainty Bounds (${n} LHS samples)`;
+                            return "Uncertainty Bounds (LHS samples)";
+                          })()}
                         </div>
                         <div className="panel-2 overflow-hidden">
                           <div className="grid grid-cols-4 text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground border-b border-border px-3 py-1.5">
@@ -683,16 +687,15 @@ function Attack() {
                   {/* 11. Validation */}
                   {r.validation_checks && (() => {
                     const vc = r.validation_checks as Record<string, any>;
-                    const summary = vc._summary ?? {};
-                    const allPassed = !!summary.all_passed;
                     const entries = Object.entries(vc).filter(([k]) => k !== "_summary");
+                    const total = entries.length;
+                    const passed = entries.filter(([, v]) => v?.passed === true).length;
+                    const allPassed = total > 0 && passed === total;
                     return (
                       <div>
                         <div className={`text-[10px] font-mono uppercase tracking-[0.14em] mb-2 ${allPassed ? "text-success" : "text-critical"}`}>
                           {allPassed ? "Validation — All Checks Passed" : "Validation — Issues Detected"}
-                          {summary.total_checks != null && (
-                            <span className="text-muted-foreground"> ({summary.passed_count ?? 0}/{summary.total_checks})</span>
-                          )}
+                          <span className="text-muted-foreground"> ({passed}/{total})</span>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
                           {entries.map(([k, v]: [string, any]) => {
