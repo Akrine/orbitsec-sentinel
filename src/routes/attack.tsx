@@ -743,6 +743,115 @@ function Attack() {
                       </div>
                     );
                   })()}
+
+                  {/* 12. Event Timeline */}
+                  {r.engine && Array.isArray(r.timeline) && r.timeline.length > 0 && (() => {
+                    const SUBSYS = ["ADCS", "EPS", "Comms", "Thermal", "Payload", "GroundSegment"] as const;
+                    const colorMap: Record<string, string> = {
+                      ADCS: "oklch(0.78 0.14 220)",
+                      EPS: "oklch(0.85 0.16 95)",
+                      Comms: "oklch(0.75 0.18 145)",
+                      Thermal: "oklch(0.75 0.18 55)",
+                      Payload: "oklch(0.70 0.18 305)",
+                      GroundSegment: "oklch(0.65 0.22 22)",
+                    };
+                    const labelOf = (s: string) => s === "GroundSegment" ? "Ground" : s;
+                    const events = (r.timeline as any[]).map((e, i) => ({ ...e, _i: i }))
+                      .filter((e) => subsysFilter[e.subsystem] !== false);
+                    return (
+                      <div>
+                        <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground mb-2">Event Timeline</div>
+                        <div className="flex flex-wrap gap-1.5 mb-3">
+                          {SUBSYS.map((s) => {
+                            const on = subsysFilter[s] !== false;
+                            return (
+                              <button key={s} type="button"
+                                onClick={() => setSubsysFilter((prev) => ({ ...prev, [s]: !on }))}
+                                className={`text-[10px] font-mono uppercase tracking-[0.14em] px-2 py-1 rounded border ${on ? "bg-surface-2" : "opacity-40"}`}
+                                style={{ borderColor: colorMap[s], color: on ? colorMap[s] : undefined }}>
+                                {labelOf(s)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div className="space-y-1.5">
+                          {events.map((e: any) => {
+                            const ts = e.time ?? e.sim_time_s;
+                            const tsStr = typeof ts === "number" ? `${ts.toFixed(1)}s` : String(ts ?? "—");
+                            const et = String(e.event_type ?? "event").toLowerCase();
+                            const badgeColor =
+                              et === "damage" ? "border-critical/60 text-critical bg-critical/10" :
+                              et === "warning" ? "border-amber/60 text-amber bg-amber/10" :
+                              et === "cascade" ? "border-primary/60 text-primary bg-primary/10" :
+                              et === "mode" ? "border-border text-muted-foreground bg-surface-2" :
+                              "border-border text-muted-foreground bg-surface-2";
+                            const sub = e.subsystem ?? "—";
+                            const isOpen = expandedEvent === e._i;
+                            const details = (e.details ?? {}) as Record<string, any>;
+                            const detailKeys = [
+                              "snr_db","jsr_db","link_margin_db","data_rate_mbps","pointing_error_deg",
+                              "control_mode","angular_rate_deg_s","power_generation_w","power_draw_w",
+                              "power_margin_w","battery_charge_pct","drain_rate_pct_hr","time_to_depletion_h",
+                              "hot_side_delta_c","cold_side_delta_c","max_temp_c","min_temp_c",
+                              "stations_operational","stations_total","next_contact_min",
+                            ].filter((k) => details?.[k] !== undefined && details?.[k] !== null);
+                            return (
+                              <div key={e._i} className="panel-2">
+                                <button type="button" onClick={() => setExpandedEvent(isOpen ? null : e._i)}
+                                  className="w-full px-3 py-2 flex items-center gap-3 text-left hover:bg-surface-2/50">
+                                  <span className="text-[11px] font-mono text-muted-foreground w-16 shrink-0">{tsStr}</span>
+                                  <span className="flex items-center gap-1.5 w-24 shrink-0">
+                                    <span className="h-2 w-2 rounded-full" style={{ background: colorMap[sub] ?? "currentColor" }} />
+                                    <span className="text-[11px] font-mono" style={{ color: colorMap[sub] ?? undefined }}>{labelOf(sub)}</span>
+                                  </span>
+                                  <span className={`text-[10px] font-mono uppercase tracking-[0.14em] px-1.5 py-0.5 rounded border shrink-0 ${badgeColor}`}>{et}</span>
+                                  <span className="text-xs flex-1 truncate">{e.description ?? ""}</span>
+                                </button>
+                                {isOpen && detailKeys.length > 0 && (
+                                  <div className="px-3 py-2 border-t border-border grid grid-cols-1 md:grid-cols-2 gap-1.5">
+                                    {detailKeys.map((k) => (
+                                      <div key={k} className="flex justify-between text-[11px] font-mono">
+                                        <span className="text-muted-foreground">{k.replace(/_/g, " ")}</span>
+                                        <span>{String(details[k])}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* 12b. Cascade Log */}
+                  {r.engine && Array.isArray(r.timeline) && r.timeline.length > 0 && (
+                    <div>
+                      <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground mb-2">Cascade Log</div>
+                      <div className="panel-2 p-3 max-h-64 overflow-auto">
+                        {(r.timeline as any[]).map((e, i) => {
+                          const ts = e.time ?? e.sim_time_s;
+                          const tsStr = typeof ts === "number" ? `${ts.toFixed(1)}s` : String(ts ?? "—");
+                          return (
+                            <div key={i} className="text-[11px] font-mono whitespace-pre-wrap">
+                              {tsStr} | {e.subsystem ?? "—"} | {e.description ?? ""}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 13. PDF Export */}
+                  {r.engine === true && (
+                    <div className="pt-2">
+                      <button type="button" disabled={pdfPending} onClick={exportPdf}
+                        className="w-full h-10 rounded-md border border-primary/60 bg-primary/10 text-primary text-[11px] font-mono uppercase tracking-[0.14em] hover:bg-primary/20 disabled:opacity-50">
+                        {pdfPending ? "Generating PDF..." : "Export PDF Report"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </Panel>
             );
