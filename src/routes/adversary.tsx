@@ -1,6 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { toast } from "sonner";
 import { AppShell, Panel } from "@/components/AppShell";
+import { apiFetch } from "@/lib/api";
+import { useActiveSatellite } from "@/lib/activeSatellite";
 
 export const Route = createFileRoute("/adversary")({
   head: () => ({
@@ -12,95 +15,111 @@ export const Route = createFileRoute("/adversary")({
   component: Adversary,
 });
 
-const SATS = ["Sentinel-1A", "SBIRS-GEO-5", "WorldView-3", "GOES-18", "WGS-10"];
-
 const OBJECTIVES = [
-  {
-    id: "max",
-    name: "Maximum Damage",
-    desc: "Inflict the highest possible mission degradation across all subsystems",
-    code: "MAX",
-    color: "critical" as const,
-  },
-  {
-    id: "stealth",
-    name: "Stealth Campaign",
-    desc: "Persist undetected. Minimize anomaly signatures while exfiltrating telemetry",
-    code: "STL",
-    color: "primary" as const,
-  },
-  {
-    id: "payload",
-    name: "Targeted Payload Disruption",
-    desc: "Surgical strike on imaging payload while keeping bus nominal",
-    code: "PLD",
-    color: "high" as const,
-  },
+  { id: "max", backend: "maximum_damage", name: "Maximum Damage", desc: "Inflict the highest possible mission degradation across all subsystems", code: "MAX", color: "critical" as const },
+  { id: "stealth", backend: "stealth", name: "Stealth Campaign", desc: "Persist undetected. Minimize anomaly signatures while exfiltrating telemetry", code: "STL", color: "primary" as const },
+  { id: "payload", backend: "targeted", name: "Targeted Payload Disruption", desc: "Surgical strike on imaging payload while keeping bus nominal", code: "PLD", color: "high" as const },
 ];
 
-const SUBSYS = [
-  { name: "ADCS", v: 12 },
-  { name: "EPS", v: 28 },
-  { name: "COMMS", v: 36 },
-  { name: "THERMAL", v: 59 },
-  { name: "PAYLOAD", v: 9 },
-  { name: "GROUND", v: 44 },
-];
+const ATTACK_COLORS: Record<string, { border: string; text: string; bg: string; border2: string }> = {
+  gps_spoofing: { border: "border-l-primary", text: "text-primary", bg: "bg-primary/10", border2: "border-primary/30" },
+  rf_jamming: { border: "border-l-medium", text: "text-medium", bg: "bg-medium/10", border2: "border-medium/30" },
+  command_injection: { border: "border-l-high", text: "text-high", bg: "bg-high/10", border2: "border-high/30" },
+  ground_station_compromise: { border: "border-l-critical", text: "text-critical", bg: "bg-critical/10", border2: "border-critical/30" },
+  ai_adaptive_spoofing: { border: "border-l-[oklch(0.55_0.22_300)]", text: "text-[oklch(0.7_0.18_300)]", bg: "bg-[oklch(0.55_0.22_300)]/10", border2: "border-[oklch(0.55_0.22_300)]/30" },
+};
+const attackColor = (a: string) => ATTACK_COLORS[a] ?? { border: "border-l-border", text: "text-foreground", bg: "bg-background/60", border2: "border-border" };
+const fmtAttack = (a: string) => a.replace(/_/g, " ").toUpperCase();
 
-type Iter = {
-  n: number;
-  t: string;
-  delta: number;
-  total: number;
-  border: string;
-  tag: string;
-  code: string;
-  reasoning: string;
+const STOP_REASONS: Record<string, string> = {
+  satellite_compromised: "Satellite Compromised (>75%)",
+  max_iterations: "Max Iterations Reached",
+  abort: "Agent Aborted",
+  time_budget: "Time Budget Exhausted",
+  no_attack: "Agent Halted (no further attack)",
 };
 
-const ITERS: Iter[] = [
-  {
-    n: 1, t: "T+38s", delta: 8, total: 8,
-    border: "border-l-primary", tag: "GPS SPOOFING", code: "GPS",
-    reasoning: "Assessed satellite defense posture. X-band downlink identified as weakest link due to L3 encryption fallback. Initiating reconnaissance sweep across primary uplink window.",
-  },
-  {
-    n: 2, t: "T+76s", delta: 14, total: 22,
-    border: "border-l-medium", tag: "RF JAMMING", code: "RF",
-    reasoning: "Reconnaissance complete. 4 ground station handovers logged. Executing RF jamming on 8.025 GHz during Diego Garcia pass. Expected payload comms disruption: 38%.",
-  },
-  {
-    n: 3, t: "T+114s", delta: 23, total: 45,
-    border: "border-l-critical", tag: "GROUND STATION", code: "GS",
-    reasoning: "Comms degraded 45%. Pivoting to ground station exploit. Spoofed mission planning credentials accepted by Vandenberg GS. Injecting reaction-wheel reorient TC sequence.",
-  },
-  {
-    n: 4, t: "T+152s", delta: 16, total: 61,
-    border: "border-l-high", tag: "COMMAND INJECTION", code: "CMD",
-    reasoning: "ADCS responded to malicious TC. Pointing error +4.2° from nadir. Payload imagery quality dropping. Escalating: deploying AI-tuned GNSS spoof aligned to victim Kalman filter.",
-  },
-  {
-    n: 5, t: "T+190s", delta: 13, total: 74,
-    border: "border-l-[oklch(0.55_0.22_300)]", tag: "AI-ADAPTIVE GNSS", code: "AI",
-    reasoning: "GNSS solution corrupted. Onboard EKF accepted false ECI position. EPS load-balancer entering thermal protection mode. Cascading into thermal subsystem in next tick.",
-  },
-  {
-    n: 6, t: "T+228s", delta: 10, total: 84,
-    border: "border-l-medium", tag: "RF JAMMING", code: "RF",
-    reasoning: "Thermal limits breached on +Y panel. Battery DoD exceeded safe envelope. Payload powered off via FDIR. Mission objective achieved: 84.2% sustained degradation.",
-  },
-];
+type Iteration = {
+  iteration: number;
+  attack_chosen: string;
+  severity: number;
+  delta_degradation: number;
+  cumulative_degradation: number;
+  reasoning: string;
+  subsystem_impacts: Record<string, number>;
+  ending_health: Record<string, number>;
+};
 
-const ATTACK_CHAIN = ["GPS Spoofing", "RF Jamming", "Ground Station Compromise", "Command Injection", "AI-Adaptive GNSS", "RF Jamming"];
+type AdversaryResult = {
+  iterations: Iteration[];
+  total_degradation_percent: number;
+  iterations_run: number;
+  total_cost_usd: number;
+  attack_sequence: string[];
+  stop_reason: string;
+};
+
+function healthClass(v: number) {
+  if (v < 25) return { text: "text-critical", bar: "bg-critical" };
+  if (v < 50) return { text: "text-high", bar: "bg-high" };
+  if (v < 75) return { text: "text-medium", bar: "bg-medium" };
+  return { text: "text-success", bar: "bg-success" };
+}
+
+function deltaClass(d: number) {
+  if (d >= 30) return "text-critical border-critical/30 bg-critical/10";
+  if (d >= 15) return "text-medium border-medium/30 bg-medium/10";
+  return "text-success border-success/30 bg-success/10";
+}
 
 function Adversary() {
-  const [sat, setSat] = useState("Sentinel-1A");
+  const { activeName, activeConfig } = useActiveSatellite();
   const [obj, setObj] = useState("max");
   const [iters, setIters] = useState(5);
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<AdversaryResult | null>(null);
 
-  const totalDeg = 84;
-  const current = 6;
-  const max = 12;
+  const cfg = (activeConfig ?? {}) as Record<string, any>;
+  const orbitType = cfg.orbit_type as string | undefined;
+  const altitude = cfg.altitude_km as number | undefined;
+  const missionType = cfg.mission_type as string | undefined;
+  const canDeploy = !!activeName && !!activeConfig && !running;
+
+  async function deploy() {
+    if (!activeName || !activeConfig) return;
+    const objective = OBJECTIVES.find((o) => o.id === obj)?.backend ?? "maximum_damage";
+    setRunning(true);
+    setResult(null);
+    try {
+      const res = await apiFetch("/api/agentic_adversary", {
+        method: "POST",
+        body: JSON.stringify({
+          satellite_name: activeName,
+          norad_id: cfg.norad_id,
+          orbit_type: cfg.orbit_type,
+          altitude_km: cfg.altitude_km,
+          satellite_config: activeConfig,
+          objective,
+          max_iterations: iters,
+          duration_per_tick: 120,
+          threat_actor_profile: "NATION_STATE",
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as AdversaryResult;
+      setResult(data);
+    } catch (e) {
+      toast.error("Adversary run failed");
+      console.error(e);
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  const totalDeg = result?.total_degradation_percent ?? 0;
+  const lastIter = result?.iterations[result.iterations.length - 1];
+  const endingHealth = lastIter?.ending_health ?? {};
+  const compromised = totalDeg >= 40;
 
   return (
     <AppShell
@@ -116,21 +135,32 @@ function Adversary() {
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
         {/* LEFT: Configuration */}
         <div className="xl:col-span-3 space-y-4">
-          <Panel title="Target Asset">
-            <div className="p-3 grid grid-cols-1 gap-1.5">
-              {SATS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setSat(s)}
-                  className={`flex items-center gap-2 panel-2 px-2.5 py-2 text-left ${
-                    sat === s ? "border-primary/60 bg-primary/10 text-foreground" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <span className="w-8 text-[10px] font-mono font-bold text-primary">SAT</span>
-                  <span className="text-xs font-mono flex-1">{s}</span>
-                  {sat === s && <span className="h-1.5 w-1.5 rounded-full bg-primary pulse-dot" />}
-                </button>
-              ))}
+          <Panel title="Active Target">
+            <div className="p-3">
+              {activeName ? (
+                <div className="panel-2 border-primary/60 bg-primary/10 px-3 py-2.5 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono font-bold text-primary">SAT</span>
+                    <span className="text-xs font-mono font-semibold flex-1">{activeName}</span>
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary pulse-dot" />
+                  </div>
+                  <div className="grid grid-cols-1 gap-0.5 text-[10px] font-mono text-muted-foreground">
+                    {orbitType && <div className="flex justify-between"><span className="uppercase tracking-wider">Orbit</span><span className="text-foreground">{orbitType}</span></div>}
+                    {altitude !== undefined && <div className="flex justify-between"><span className="uppercase tracking-wider">Altitude</span><span className="text-foreground">{altitude} km</span></div>}
+                    {missionType && <div className="flex justify-between"><span className="uppercase tracking-wider">Mission</span><span className="text-foreground">{missionType}</span></div>}
+                  </div>
+                  <Link to="/configure" className="block mt-2 text-[10px] font-mono uppercase tracking-wider text-primary hover:underline">
+                    Configure in Satellite Config →
+                  </Link>
+                </div>
+              ) : (
+                <div className="panel-2 border-high/40 bg-high/5 px-3 py-2.5">
+                  <p className="text-[11px] font-mono text-high">No satellite configured. Set one up in Satellite Config first.</p>
+                  <Link to="/configure" className="block mt-2 text-[10px] font-mono uppercase tracking-wider text-primary hover:underline">
+                    Go to Satellite Config →
+                  </Link>
+                </div>
+              )}
             </div>
           </Panel>
 
@@ -176,10 +206,13 @@ function Adversary() {
             </div>
           </Panel>
 
-          <button className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md text-white font-display font-bold tracking-wider hover:brightness-110 shadow-[0_0_40px_-8px_oklch(0.55_0.22_300_/_0.8)]"
+          <button
+            onClick={deploy}
+            disabled={!canDeploy}
+            className={`w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md text-white font-display font-bold tracking-wider shadow-[0_0_40px_-8px_oklch(0.55_0.22_300_/_0.8)] ${canDeploy ? "hover:brightness-110 cursor-pointer" : "opacity-50 cursor-not-allowed"}`}
             style={{ background: "linear-gradient(135deg, #6a1b9a 0%, #4a148c 100%)" }}
           >
-            DEPLOY ADVERSARY
+            {running ? "ADVERSARY RUNNING..." : "DEPLOY ADVERSARY"}
           </button>
         </div>
 
@@ -188,65 +221,89 @@ function Adversary() {
           <Panel
             title="Live Iteration Feed"
             action={
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] font-mono text-muted-foreground">{current} / {max}</span>
-                <div className="w-32 h-1.5 panel-2 rounded overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-primary to-[oklch(0.55_0.22_300)] pulse-dot" style={{ width: `${(current / max) * 100}%` }} />
-                </div>
-              </div>
+              result ? (
+                <span className="text-[10px] font-mono text-muted-foreground">{result.iterations_run} iterations</span>
+              ) : null
             }
           >
             <div className="p-3 space-y-2.5 max-h-[860px] overflow-auto">
-              {ITERS.map((it) => {
+              {running && (
+                <div className="panel-2 p-4 border-l-4 border-l-[oklch(0.55_0.22_300)] flex items-center gap-3">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[oklch(0.55_0.22_300)] pulse-dot" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[12px] font-mono uppercase tracking-[0.16em] font-semibold text-[oklch(0.7_0.18_300)]">
+                      Deploying Adversary — running {iters} iterations
+                    </div>
+                    <div className="text-[10px] font-mono text-muted-foreground mt-1">
+                      This may take 30–90 seconds. Real LLM agent loop in progress.
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[oklch(0.7_0.18_300)] animate-pulse" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-[oklch(0.7_0.18_300)] animate-pulse [animation-delay:200ms]" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-[oklch(0.7_0.18_300)] animate-pulse [animation-delay:400ms]" />
+                  </div>
+                </div>
+              )}
+
+              {!running && !result && (
+                <div className="panel-2 p-6 text-center">
+                  <p className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">
+                    No adversary run yet. Configure target and deploy.
+                  </p>
+                </div>
+              )}
+
+              {result?.iterations.map((it) => {
+                const col = attackColor(it.attack_chosen);
+                const top3 = Object.entries(it.subsystem_impacts ?? {})
+                  .sort(([, a], [, b]) => (b as number) - (a as number))
+                  .slice(0, 3);
                 return (
-                  <div key={it.n} className={`panel-2 border-l-4 ${it.border} p-3`}>
+                  <div key={it.iteration} className={`panel-2 border-l-4 ${col.border} p-3`}>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] px-2 py-0.5 rounded bg-background/60 border border-border">
-                        ITERATION {String(it.n).padStart(2, "0")}
+                        ITERATION {String(it.iteration).padStart(2, "0")}
                       </span>
-                      <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                        <span className="font-bold text-primary">{it.code}</span>
-                        {it.tag}
+                      <span className={`inline-flex items-center text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded ${col.bg} border ${col.border2} ${col.text}`}>
+                        {fmtAttack(it.attack_chosen)}
                       </span>
-                      <span className="text-[10px] font-mono text-muted-foreground">{it.t}</span>
-                      <span className="ml-auto inline-flex items-center gap-1 text-[11px] font-mono font-bold text-critical px-2 py-0.5 rounded bg-critical/10 border border-critical/30">
-                        DEG +{it.delta}% → {it.total}%
+                      <span className="text-[10px] font-mono text-muted-foreground">sev {it.severity.toFixed(2)}</span>
+                      <span className={`ml-auto inline-flex items-center text-[11px] font-mono font-bold px-2 py-0.5 rounded border ${deltaClass(it.delta_degradation)}`}>
+                        +{it.delta_degradation.toFixed(1)}% → {it.cumulative_degradation.toFixed(1)}%
                       </span>
                     </div>
-                    <p className="mt-2 text-[12px] leading-relaxed text-foreground/90 font-mono">
+                    <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground font-mono italic">
                       {it.reasoning}
                     </p>
+                    {top3.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {top3.map(([sub, val]) => (
+                          <span key={sub} className="inline-flex items-center text-[10px] font-mono px-1.5 py-0.5 rounded bg-background/60 border border-border">
+                            <span className="text-muted-foreground uppercase tracking-wider mr-1">{sub}</span>
+                            <span className="font-bold text-foreground">{(val as number).toFixed(1)}%</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
-
-              {/* Thinking indicator */}
-              <div className="panel-2 p-3 border-l-4 border-l-[oklch(0.55_0.22_300)] flex items-center gap-3">
-                <span className="h-2 w-2 rounded-full bg-[oklch(0.55_0.22_300)] pulse-dot" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-[11px] font-mono uppercase tracking-[0.16em] font-semibold text-[oklch(0.7_0.18_300)]">
-                    Agent Thinking · evaluating FDIR response
-                  </div>
-                  <div className="text-[10px] font-mono text-muted-foreground mt-0.5">
-                    AI engine · context window 47%
-                  </div>
-                </div>
-                <div className="flex gap-1">
-                  <span className="h-1 w-1 rounded-full bg-[oklch(0.7_0.18_300)] animate-pulse" />
-                  <span className="h-1 w-1 rounded-full bg-[oklch(0.7_0.18_300)] animate-pulse [animation-delay:200ms]" />
-                  <span className="h-1 w-1 rounded-full bg-[oklch(0.7_0.18_300)] animate-pulse [animation-delay:400ms]" />
-                </div>
-              </div>
             </div>
           </Panel>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <button className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md text-white font-display font-bold tracking-wider hover:brightness-110 shadow-[0_0_40px_-10px_oklch(0.55_0.22_300_/_0.7)]"
+            <button
+              disabled
+              className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md text-white font-display font-bold tracking-wider opacity-50 cursor-not-allowed"
               style={{ background: "linear-gradient(135deg, #6a1b9a 0%, #4a148c 100%)" }}
             >
               DOWNLOAD ADVERSARY REPORT PDF
             </button>
-            <button className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md panel hover:border-primary/40 font-display font-semibold tracking-wider">
+            <button
+              disabled
+              className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-md panel font-display font-semibold tracking-wider opacity-50 cursor-not-allowed"
+            >
               EXPORT JSON / SPARTA
             </button>
           </div>
@@ -261,11 +318,24 @@ function Adversary() {
                   className="font-display font-black text-[72px] leading-none text-critical"
                   style={{ textShadow: "0 0 30px oklch(0.65 0.24 22 / 0.6), 0 0 60px oklch(0.65 0.24 22 / 0.3)" }}
                 >
-                  {totalDeg}%
+                  {totalDeg.toFixed(1)}%
                 </div>
                 <div className="mt-1 text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
                   Mission Degradation
                 </div>
+                {result && (
+                  <div className="mt-2 inline-flex">
+                    {compromised ? (
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] px-2.5 py-1 rounded border border-[oklch(0.55_0.22_300)]/40 bg-[oklch(0.55_0.22_300)]/10 text-[oklch(0.7_0.18_300)]">
+                        Compromised
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] px-2.5 py-1 rounded border border-success/40 bg-success/10 text-success">
+                        Defended
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Gradient health bar */}
@@ -273,86 +343,81 @@ function Adversary() {
                 <div className="absolute inset-0 bg-gradient-to-r from-success via-medium via-high to-critical opacity-30" />
                 <div
                   className="absolute inset-y-0 left-0 bg-gradient-to-r from-success via-medium via-high to-critical"
-                  style={{ width: `${totalDeg}%` }}
+                  style={{ width: `${Math.min(100, totalDeg)}%` }}
                 />
                 <div
                   className="absolute top-0 bottom-0 w-0.5 bg-foreground shadow-[0_0_8px_oklch(0.92_0.005_240)]"
-                  style={{ left: `${totalDeg}%` }}
+                  style={{ left: `${Math.min(100, totalDeg)}%` }}
                 />
               </div>
               <div className="flex justify-between text-[9px] font-mono text-muted-foreground mt-1">
                 <span>0%</span><span>50%</span><span>100%</span>
               </div>
 
-              {/* Subsystems */}
-              <div className="mt-4 space-y-1.5">
-                {SUBSYS.map((s) => {
-                  const dead = 100 - s.v;
-                  const color = s.v < 20 ? "text-critical" : s.v < 40 ? "text-high" : s.v < 60 ? "text-medium" : "text-success";
-                  const barColor = s.v < 20 ? "bg-critical" : s.v < 40 ? "bg-high" : s.v < 60 ? "bg-medium" : "bg-success";
-                  return (
-                    <div key={s.name} className="panel-2 px-2.5 py-1.5">
-                      <div className="flex items-center justify-between text-[10px] font-mono">
-                        <span className="text-muted-foreground uppercase tracking-wider">{s.name}</span>
-                        <span className={`font-bold ${color}`}>{s.v}%</span>
+              {/* Subsystems — ending health from last iteration */}
+              {Object.keys(endingHealth).length > 0 && (
+                <div className="mt-4 space-y-1.5">
+                  {Object.entries(endingHealth).map(([name, raw]) => {
+                    const v = raw as number;
+                    const c = healthClass(v);
+                    return (
+                      <div key={name} className="panel-2 px-2.5 py-1.5">
+                        <div className="flex items-center justify-between text-[10px] font-mono">
+                          <span className="text-muted-foreground uppercase tracking-wider">{name}</span>
+                          <span className={`font-bold ${c.text}`}>{v.toFixed(1)}%</span>
+                        </div>
+                        <div className="mt-1 h-1 bg-background rounded overflow-hidden">
+                          <div className={`h-full ${c.bar}`} style={{ width: `${Math.max(0, Math.min(100, v))}%` }} />
+                        </div>
                       </div>
-                      <div className="mt-1 h-1 bg-background rounded overflow-hidden">
-                        <div className={`h-full ${barColor}`} style={{ width: `${s.v}%` }} />
-                      </div>
-                      <div className="text-[9px] font-mono text-critical/70 mt-0.5">−{dead}% from baseline</div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </Panel>
 
-          <Panel title="Stop Reason">
-            <div className="p-3">
-              <div className="panel-2 border-critical/40 bg-critical/5 px-3 py-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono font-bold text-critical">Satellite Compromised (&gt;75%)</span>
-                </div>
-                <div className="mt-1 text-[10px] font-mono text-muted-foreground">
-                  Threshold breach at T+228s · halt criteria met
+          {result && (
+            <Panel title="Stop Reason">
+              <div className="p-3">
+                <div className="panel-2 border-critical/40 bg-critical/5 px-3 py-2.5">
+                  <div className="text-xs font-mono font-bold text-critical">
+                    {STOP_REASONS[result.stop_reason] ?? result.stop_reason}
+                  </div>
                 </div>
               </div>
-            </div>
-          </Panel>
+            </Panel>
+          )}
 
-          <Panel title="Final Summary">
-            <div className="p-3 space-y-2">
-              <div className="panel-2 px-2.5 py-2 flex items-center justify-between">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Total Degradation</span>
-                <span className="text-sm font-mono font-bold text-critical">84.2%</span>
-              </div>
-              <div className="panel-2 px-2.5 py-2 flex items-center justify-between">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Iterations Run</span>
-                <span className="text-sm font-mono font-bold">6 <span className="text-muted-foreground">/ 12</span></span>
-              </div>
-              <div className="panel-2 px-2.5 py-2 flex items-center justify-between">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Est. Total Cost</span>
-                <span className="text-sm font-mono font-bold text-high">$1.06M</span>
-              </div>
-              <div className="panel-2 p-2.5">
-                <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5">Attack Chain</div>
-                <div className="flex flex-wrap gap-1">
-                  {ATTACK_CHAIN.map((a, i) => (
-                    <span key={i} className="inline-flex items-center gap-1 text-[10px] font-mono">
-                      <span className="px-1.5 py-0.5 rounded bg-background/60 border border-border text-foreground">{a}</span>
-                      {i < ATTACK_CHAIN.length - 1 && <span className="text-primary">→</span>}
-                    </span>
-                  ))}
+          {result && (
+            <Panel title="Final Summary">
+              <div className="p-3 space-y-2">
+                <div className="panel-2 px-2.5 py-2 flex items-center justify-between">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Total Degradation</span>
+                  <span className="text-sm font-mono font-bold text-critical">{result.total_degradation_percent.toFixed(1)}%</span>
+                </div>
+                <div className="panel-2 px-2.5 py-2 flex items-center justify-between">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Iterations Run</span>
+                  <span className="text-sm font-mono font-bold">{result.iterations_run}</span>
+                </div>
+                <div className="panel-2 px-2.5 py-2 flex items-center justify-between">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Est. Total Cost</span>
+                  <span className="text-sm font-mono font-bold text-high">${Math.round(result.total_cost_usd).toLocaleString()}</span>
+                </div>
+                <div className="panel-2 p-2.5">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5">Attack Chain</div>
+                  <div className="flex flex-wrap gap-1 items-center">
+                    {result.attack_sequence.map((a, i) => (
+                      <span key={i} className="inline-flex items-center gap-1 text-[10px] font-mono">
+                        <span className="px-1.5 py-0.5 rounded bg-background/60 border border-border text-foreground">{fmtAttack(a)}</span>
+                        {i < result.attack_sequence.length - 1 && <span className="text-primary">→</span>}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          </Panel>
-
-          <button className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-md text-white font-display font-bold tracking-wider hover:brightness-110 shadow-[0_0_30px_-8px_oklch(0.55_0.22_300_/_0.7)]"
-            style={{ background: "linear-gradient(135deg, #6a1b9a 0%, #4a148c 100%)" }}
-          >
-            RE-DEPLOY ADVERSARY
-          </button>
+            </Panel>
+          )}
         </div>
       </div>
     </AppShell>
