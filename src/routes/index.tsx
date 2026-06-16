@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
+import { apiFetch } from "@/lib/api";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -11,32 +13,163 @@ export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
-const STATS = [
-  { label: "Simulations Run", value: "1,284", delta: "+47 (24h)", trend: "up", code: "SIM", color: "text-cyan" },
-  { label: "Active Satellites", value: "37", delta: "5 constellations", trend: "flat", code: "SAT", color: "text-primary" },
-  { label: "Avg Mission Degradation", value: "62.4%", delta: "+4.1% wk", trend: "down", code: "DEG", color: "text-high" },
-  { label: "Reports Generated", value: "412", delta: "+18 (24h)", trend: "up", code: "RPT", color: "text-low" },
-];
+type Report = {
+  id: string;
+  simulation_id?: string;
+  target_satellite: string;
+  attack_type: string;
+  mission_degradation_percent: number;
+  recovery_time_hours?: number;
+  success?: boolean;
+  created_at: string;
+};
 
-const RECENT = [
-  { sat: "Sentinel-1A", attack: "AI-Adaptive GNSS Spoofing", deg: 84, risk: "CRITICAL", date: "2026-06-11 14:22 UTC" },
-  { sat: "SBIRS-GEO-5", attack: "Command Injection", deg: 71, risk: "CRITICAL", date: "2026-06-11 12:08 UTC" },
-  { sat: "WorldView-3", attack: "RF Jamming", deg: 58, risk: "HIGH", date: "2026-06-11 09:41 UTC" },
-  { sat: "GOES-18", attack: "Ground Station Compromise", deg: 47, risk: "HIGH", date: "2026-06-10 23:15 UTC" },
-  { sat: "WGS-10", attack: "GPS Spoofing", deg: 33, risk: "MEDIUM", date: "2026-06-10 18:50 UTC" },
-  { sat: "Sentinel-1A", attack: "RF Jamming", deg: 22, risk: "LOW", date: "2026-06-10 11:02 UTC" },
-] as const;
+type RiskLevel = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
 
-const ACTIONS = [
-  { to: "/attack", title: "Run New Simulation", desc: "Single-satellite attack scenario", code: "SIM", accent: "from-critical/20 to-transparent" },
-  { to: "/constellation", title: "Constellation Mode", desc: "Cascading multi-asset breach", code: "CST", accent: "from-primary/20 to-transparent" },
-  { to: "/adversary", title: "AI Adversary", desc: "Autonomous red-team agent", code: "ADV", accent: "from-high/20 to-transparent" },
-  { to: "/reports", title: "View Reports", desc: "412 archived assessments", code: "RPT", accent: "from-low/20 to-transparent" },
-];
+function riskFromDeg(deg: number): RiskLevel {
+  if (deg >= 70) return "CRITICAL";
+  if (deg >= 50) return "HIGH";
+  if (deg >= 30) return "MEDIUM";
+  return "LOW";
+}
+
+function degColor(deg: number): string {
+  if (deg >= 70) return "text-critical";
+  if (deg >= 50) return "text-high";
+  if (deg >= 30) return "text-medium";
+  return "text-low";
+}
+
+function healthBarColor(h: number): string {
+  if (h < 50) return "bg-critical";
+  if (h < 70) return "bg-high";
+  if (h < 85) return "bg-medium";
+  return "bg-low";
+}
+
+function titleCaseAttack(s: string): string {
+  return s
+    .replace(/_/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function fmtUTC(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
+}
+
+function fmtHeaderNow(d: Date): string {
+  const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getUTCDate())} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}Z`;
+}
 
 function Dashboard() {
+  const [reports, setReports] = useState<Report[] | null>(null);
+  const [configCount, setConfigCount] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState<Date>(() => new Date());
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const [rRes, cRes] = await Promise.all([
+          apiFetch("/api/reports?limit=500"),
+          apiFetch("/api/configs"),
+        ]);
+        const rData = rRes.ok ? ((await rRes.json()) as Report[]) : [];
+        const cData = cRes.ok ? await cRes.json() : [];
+        if (cancelled) return;
+        setReports(Array.isArray(rData) ? rData : []);
+        setConfigCount(Array.isArray(cData) ? cData.length : 0);
+      } catch {
+        if (!cancelled) {
+          setReports([]);
+          setConfigCount(0);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const stats = useMemo(() => {
+    const list = reports ?? [];
+    const total = list.length;
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const last24 = list.filter((r) => {
+      const t = new Date(r.created_at).getTime();
+      return !Number.isNaN(t) && t >= cutoff;
+    }).length;
+    const avgDeg =
+      total > 0
+        ? list.reduce((s, r) => s + (Number(r.mission_degradation_percent) || 0), 0) / total
+        : null;
+
+    return {
+      simsValue: total.toLocaleString(),
+      simsDelta: `+${last24} (24h)`,
+      configsValue: configCount === null ? "—" : configCount.toLocaleString(),
+      avgDegValue: avgDeg === null ? "—" : `${avgDeg.toFixed(1)}%`,
+      avgDegColor: avgDeg === null ? "text-high" : degColor(avgDeg),
+      reportsValue: total.toLocaleString(),
+      reportsDelta: `+${last24} (24h)`,
+    };
+  }, [reports, configCount]);
+
+  const recent = useMemo(() => (reports ?? []).slice(0, 6), [reports]);
+
+  const latestBySat = useMemo(() => {
+    const list = reports ?? [];
+    const map = new Map<string, Report>();
+    for (const r of list) {
+      const existing = map.get(r.target_satellite);
+      if (!existing) {
+        map.set(r.target_satellite, r);
+        continue;
+      }
+      const tNew = new Date(r.created_at).getTime();
+      const tOld = new Date(existing.created_at).getTime();
+      if (tNew > tOld) map.set(r.target_satellite, r);
+    }
+    return Array.from(map.values())
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 6);
+  }, [reports]);
+
+  const totalReports = reports?.length ?? 0;
+
+  const STATS = [
+    { label: "Simulations Run", value: stats.simsValue, delta: stats.simsDelta, code: "SIM", color: "text-cyan" },
+    { label: "Saved Configurations", value: stats.configsValue, delta: "", code: "CFG", color: "text-primary" },
+    { label: "Avg Mission Degradation", value: stats.avgDegValue, delta: "", code: "DEG", color: stats.avgDegColor },
+    { label: "Reports Generated", value: stats.reportsValue, delta: stats.reportsDelta, code: "RPT", color: "text-low" },
+  ];
+
+  const ACTIONS = [
+    { to: "/attack", title: "Run New Simulation", desc: "Single-satellite attack scenario", code: "SIM", accent: "from-critical/20 to-transparent" },
+    { to: "/constellation", title: "Constellation Mode", desc: "Cascading multi-asset breach", code: "CST", accent: "from-primary/20 to-transparent" },
+    { to: "/adversary", title: "AI Adversary", desc: "Autonomous red-team agent", code: "ADV", accent: "from-high/20 to-transparent" },
+    { to: "/reports", title: "View Reports", desc: `${totalReports.toLocaleString()} archived assessments`, code: "RPT", accent: "from-low/20 to-transparent" },
+  ] as const;
+
   return (
-    <AppShell title="Operations Overview" subtitle="THEATER · CONUS · 11 JUN 2026 14:32:07Z">
+    <AppShell title="Operations Overview" subtitle={`THEATER · CONUS · ${fmtHeaderNow(now)}`}>
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {STATS.map((s) => (
@@ -45,10 +178,10 @@ function Dashboard() {
             <div className="relative flex items-start justify-between">
               <div>
                 <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-muted-foreground">{s.label}</div>
-                <div className="mt-2 text-3xl font-display font-semibold tracking-tight">{s.value}</div>
-                <div className="mt-1 flex items-center gap-1 text-[11px] font-mono text-muted-foreground">
-                  {s.trend === "up" && <span className="text-success">UP</span>}
-                  {s.trend === "down" && <span className="text-critical">DN</span>}
+                <div className="mt-2 text-3xl font-display font-semibold tracking-tight">
+                  {loading ? "…" : s.value}
+                </div>
+                <div className="mt-1 flex items-center gap-1 text-[11px] font-mono text-muted-foreground min-h-[14px]">
                   {s.delta}
                 </div>
               </div>
@@ -62,9 +195,15 @@ function Dashboard() {
 
       {/* Main grid */}
       <div className="mt-4 grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <Panel className="xl:col-span-2" title="Recent Simulations" action={
-          <Link to="/reports" className="text-[11px] font-mono uppercase tracking-wider text-primary hover:underline">View all</Link>
-        }>
+        <Panel
+          className="xl:col-span-2"
+          title="Recent Simulations"
+          action={
+            <Link to="/reports" className="text-[11px] font-mono uppercase tracking-wider text-primary hover:underline">
+              View all
+            </Link>
+          }
+        >
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -77,50 +216,83 @@ function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {RECENT.map((r, i) => (
-                  <tr key={i} className="border-t border-border hover:bg-surface-2/50">
-                    <td className="px-4 py-3 font-mono text-[13px]">{r.sat}</td>
-                    <td className="px-4 py-3 text-foreground/90">{r.attack}</td>
-                    <td className="px-4 py-3 text-right font-mono">
-                      <span className={r.deg >= 70 ? "text-critical" : r.deg >= 50 ? "text-high" : r.deg >= 30 ? "text-medium" : "text-low"}>
-                        {r.deg.toFixed(1)}%
-                      </span>
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-6 text-center text-xs font-mono text-muted-foreground">
+                      Loading assessments…
                     </td>
-                    <td className="px-4 py-3"><StatusBadge level={r.risk} /></td>
-                    <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground">{r.date}</td>
                   </tr>
-                ))}
+                ) : recent.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-6 text-center text-xs text-muted-foreground">
+                      No assessments yet.{" "}
+                      <Link to="/attack" className="text-primary hover:underline font-mono uppercase tracking-wider">
+                        Run a simulation to begin.
+                      </Link>
+                    </td>
+                  </tr>
+                ) : (
+                  recent.map((r) => {
+                    const deg = Number(r.mission_degradation_percent) || 0;
+                    const risk = riskFromDeg(deg);
+                    return (
+                      <tr key={r.id} className="border-t border-border hover:bg-surface-2/50">
+                        <td className="px-4 py-3 font-mono text-[13px]">{r.target_satellite}</td>
+                        <td className="px-4 py-3 text-foreground/90">{titleCaseAttack(r.attack_type)}</td>
+                        <td className="px-4 py-3 text-right font-mono">
+                          <span className={degColor(deg)}>{deg.toFixed(1)}%</span>
+                        </td>
+                        <td className="px-4 py-3"><StatusBadge level={risk} /></td>
+                        <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground">{fmtUTC(r.created_at)}</td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
         </Panel>
 
-        <Panel title="Fleet Posture">
+        <Panel title="Latest Assessment by Satellite">
           <div className="p-4 space-y-3">
-            {[
-              { name: "Sentinel-1A", health: 42, risk: "CRITICAL" },
-              { name: "SBIRS-GEO-5", health: 51, risk: "HIGH" },
-              { name: "WorldView-3", health: 68, risk: "HIGH" },
-              { name: "GOES-18", health: 74, risk: "MEDIUM" },
-              { name: "WGS-10", health: 88, risk: "LOW" },
-            ].map((s) => (
-              <div key={s.name} className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-mono">{s.name}</span>
-                  <StatusBadge level={s.risk as any} />
-                </div>
-                <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden">
-                  <div
-                    className={`h-full ${s.health < 50 ? "bg-critical" : s.health < 70 ? "bg-high" : s.health < 85 ? "bg-medium" : "bg-low"}`}
-                    style={{ width: `${s.health}%` }}
-                  />
-                </div>
-                <div className="flex justify-between text-[10px] font-mono text-muted-foreground">
-                  <span>HEALTH</span>
-                  <span>{s.health}%</span>
-                </div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground">
+              Most recent assessment per asset
+            </div>
+            {loading ? (
+              <div className="text-xs font-mono text-muted-foreground py-4">Loading…</div>
+            ) : latestBySat.length === 0 ? (
+              <div className="text-xs text-muted-foreground py-4">
+                No assessments yet.{" "}
+                <Link to="/attack" className="text-primary hover:underline font-mono uppercase tracking-wider">
+                  Run a simulation
+                </Link>{" "}
+                to populate this panel.
               </div>
-            ))}
+            ) : (
+              latestBySat.map((r) => {
+                const deg = Number(r.mission_degradation_percent) || 0;
+                const health = Math.max(0, Math.min(100, 100 - deg));
+                const risk = riskFromDeg(deg);
+                return (
+                  <div key={r.target_satellite} className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-mono">{r.target_satellite}</span>
+                      <StatusBadge level={risk} />
+                    </div>
+                    <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden">
+                      <div
+                        className={`h-full ${healthBarColor(health)}`}
+                        style={{ width: `${health}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-[10px] font-mono text-muted-foreground">
+                      <span>HEALTH {health.toFixed(0)}%</span>
+                      <span>{fmtUTC(r.created_at)}</span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </Panel>
       </div>
