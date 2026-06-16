@@ -1,6 +1,8 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState, useMemo, useEffect } from "react";
+import { toast } from "sonner";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
+import { apiFetch } from "@/lib/api";
 
 export const Route = createFileRoute("/attack")({
   head: () => ({
