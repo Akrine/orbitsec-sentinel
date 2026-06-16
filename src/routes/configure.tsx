@@ -138,37 +138,276 @@ function Section({
   );
 }
 
+// ---------- form state ----------
+type FormState = {
+  mission_type: string;
+  altitude: number;
+  inclination: number;
+  adcs: {
+    pointing_accuracy: number;
+    reaction_wheels: number;
+    star_trackers: number;
+    st_accuracy: number;
+    gyroscopes: number;
+    gyro_drift: number;
+    slew_rate: number;
+    wheel_momentum: number;
+    sun_sensors: number;
+    magnetometers: number;
+    magnetorquers: number;
+    has_thrusters: boolean;
+    anomaly_detection: boolean;
+    backup_mode: string;
+    backup_pointing: number;
+    switchover_time: number;
+    autonomy: string;
+    detection_threshold: number;
+    propellant: number;
+    isp: number;
+  };
+  eps: {
+    solar_panel_area: number;
+    cell_efficiency: number;
+    solar_arrays: number;
+    battery_wh: number;
+    battery_cells: number;
+    battery_voltage: number;
+    power_buses: number;
+    nominal_draw: number;
+    peak_draw: number;
+    redundant_power: boolean;
+  };
+  comms: {
+    s_antennas: number;
+    s_gain: number;
+    s_freq: number;
+    s_tx_power: number;
+    s_data: number;
+    x_antennas: number;
+    x_gain: number;
+    x_freq: number;
+    x_tx_power: number;
+    x_data: number;
+    rx_sensitivity: number;
+    has_ka: boolean;
+    multi_gnss: boolean;
+    encryption: string;
+    spread_spectrum: string;
+    gps_aj_margin: number;
+    modulation: string;
+    command_auth: string;
+    fallback_chain: { ka: boolean; x: boolean; s: boolean; uhf: boolean };
+  };
+  thermal: {
+    radiator_area: number;
+    emissivity: number;
+    heaters: number;
+    heater_power: number;
+    mli_layers: number;
+    min_op_temp: number;
+    max_op_temp: number;
+    batt_min_temp: number;
+    batt_max_temp: number;
+    heat_pipes: number;
+    coating: string;
+  };
+  payload: {
+    optical_aperture: number;
+    focal_length: number;
+    gsd: number;
+    data_rate: number;
+    storage: number;
+    power_draw: number;
+    pointing_req: number;
+  };
+  ground_segment: {
+    ground_stations: number;
+    uplink_freq: number;
+    downlink_freq: number;
+    antenna_gain: number;
+    ground_tx_power: number;
+    contact_window: number;
+    passes_per_day: number;
+    crosslinks: boolean;
+    encryption: string;
+    net_segmentation: string;
+    firmware_verification: string;
+    region: string;
+  };
+  radiation: { tid_krad: number };
+  financial: {
+    downtime_rate: number;
+    asset_value: number;
+    recovery_ops_rate: number;
+  };
+};
+
+const DEFAULTS: FormState = {
+  mission_type: "Earth Observation",
+  altitude: 400,
+  inclination: 51.6,
+  adcs: {
+    pointing_accuracy: 0.1,
+    reaction_wheels: 4,
+    star_trackers: 2,
+    st_accuracy: 10,
+    gyroscopes: 4,
+    gyro_drift: 1.0,
+    slew_rate: 1.0,
+    wheel_momentum: 50,
+    sun_sensors: 6,
+    magnetometers: 3,
+    magnetorquers: 3,
+    has_thrusters: false,
+    anomaly_detection: false,
+    backup_mode: "None",
+    backup_pointing: 1.0,
+    switchover_time: 60,
+    autonomy: "Low",
+    detection_threshold: 30,
+    propellant: 100,
+    isp: 220,
+  },
+  eps: {
+    solar_panel_area: 4.0,
+    cell_efficiency: 0.3,
+    solar_arrays: 2,
+    battery_wh: 1000,
+    battery_cells: 48,
+    battery_voltage: 28,
+    power_buses: 2,
+    nominal_draw: 200,
+    peak_draw: 400,
+    redundant_power: true,
+  },
+  comms: {
+    s_antennas: 2,
+    s_gain: 12.0,
+    s_freq: 2200,
+    s_tx_power: 5.0,
+    s_data: 10,
+    x_antennas: 1,
+    x_gain: 25,
+    x_freq: 8400,
+    x_tx_power: 10,
+    x_data: 100,
+    rx_sensitivity: -110,
+    has_ka: false,
+    multi_gnss: false,
+    encryption: "AES-256",
+    spread_spectrum: "None",
+    gps_aj_margin: 0,
+    modulation: "BPSK",
+    command_auth: "None",
+    fallback_chain: { ka: false, x: true, s: true, uhf: false },
+  },
+  thermal: {
+    radiator_area: 2.0,
+    emissivity: 0.85,
+    heaters: 6,
+    heater_power: 10,
+    mli_layers: 15,
+    min_op_temp: -20,
+    max_op_temp: 50,
+    batt_min_temp: 0,
+    batt_max_temp: 40,
+    heat_pipes: 4,
+    coating: "White Paint",
+  },
+  payload: {
+    optical_aperture: 0.5,
+    focal_length: 5.0,
+    gsd: 1.0,
+    data_rate: 2.0,
+    storage: 500,
+    power_draw: 100,
+    pointing_req: 0.01,
+  },
+  ground_segment: {
+    ground_stations: 3,
+    uplink_freq: 2025,
+    downlink_freq: 2200,
+    antenna_gain: 20,
+    ground_tx_power: 100,
+    contact_window: 10,
+    passes_per_day: 6,
+    crosslinks: false,
+    encryption: "AES-256",
+    net_segmentation: "Basic",
+    firmware_verification: "Software Signature",
+    region: "Global Distribution",
+  },
+  radiation: { tid_krad: 20 },
+  financial: {
+    downtime_rate: 15000,
+    asset_value: 300,
+    recovery_ops_rate: 5000,
+  },
+};
+
+// safely merge a loaded config into defaults; missing fields keep defaults
+function mergeConfig(loaded: Record<string, unknown> | undefined | null): FormState {
+  const base: FormState = JSON.parse(JSON.stringify(DEFAULTS));
+  if (!loaded || typeof loaded !== "object") return base;
+  const L = loaded as Record<string, any>;
+
+  if (typeof L.mission_type === "string") {
+    // backend stores snake_case; convert to title-case display value if matches
+    const m = L.mission_type as string;
+    const pretty = m.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    base.mission_type = pretty;
+  }
+  if (typeof L.altitude === "number") base.altitude = L.altitude;
+  if (typeof L.inclination === "number") base.inclination = L.inclination;
+
+  const groups: (keyof FormState)[] = [
+    "adcs",
+    "eps",
+    "comms",
+    "thermal",
+    "payload",
+    "ground_segment",
+    "radiation",
+    "financial",
+  ];
+  for (const g of groups) {
+    const src = L[g];
+    if (src && typeof src === "object") {
+      const target = base[g] as Record<string, any>;
+      for (const k of Object.keys(target)) {
+        if (k in src && src[k] !== null && src[k] !== undefined) {
+          if (k === "fallback_chain" && typeof src[k] === "object") {
+            target[k] = { ...target[k], ...src[k] };
+          } else {
+            target[k] = src[k];
+          }
+        }
+      }
+    }
+  }
+  return base;
+}
+
 // ---------- main ----------
 function Configure() {
-  const [mission, setMission] = useState("Earth Observation");
+  const [form, setForm] = useState<FormState>(DEFAULTS);
 
-  // ADCS
-  const [hasThrusters, setHasThrusters] = useState(false);
-  const [anomalyDet, setAnomalyDet] = useState(false);
-  const [backupMode, setBackupMode] = useState("None");
-  const [autonomy, setAutonomy] = useState("Low");
+  // helpers to update nested values
+  const setTop = <K extends keyof FormState>(key: K, value: FormState[K]) =>
+    setForm((f) => ({ ...f, [key]: value }));
+  const setG = <G extends "adcs" | "eps" | "comms" | "thermal" | "payload" | "ground_segment" | "radiation" | "financial">(
+    group: G,
+    key: keyof FormState[G],
+    value: any,
+  ) => setForm((f) => ({ ...f, [group]: { ...(f[group] as object), [key]: value } }));
+  const setFallback = (key: "ka" | "x" | "s" | "uhf", value: boolean) =>
+    setForm((f) => ({
+      ...f,
+      comms: { ...f.comms, fallback_chain: { ...f.comms.fallback_chain, [key]: value } },
+    }));
 
-  // EPS
-  const [redundantPower, setRedundantPower] = useState(true);
-
-  // Comms
-  const [hasKa, setHasKa] = useState(false);
-  const [commsEnc, setCommsEnc] = useState("AES-256");
-  const [multiGNSS, setMultiGNSS] = useState(false);
-  const [spread, setSpread] = useState("None");
-  const [modulation, setModulation] = useState("BPSK");
-  const [cmdAuth, setCmdAuth] = useState("None");
-  const [fallback, setFallback] = useState({ ka: false, x: true, s: true, uhf: false });
-
-  // Thermal
-  const [coating, setCoating] = useState("White Paint");
-
-  // Ground
-  const [crosslinks, setCrosslinks] = useState(false);
-  const [gsEnc, setGsEnc] = useState("AES-256");
-  const [netSeg, setNetSeg] = useState("Basic");
-  const [firmware, setFirmware] = useState("Software Signature");
-  const [region, setRegion] = useState("Global Distribution");
+  // numeric input handler: keep as number; allow empty -> 0
+  const num = (v: string) => (v === "" || v === "-" ? 0 : Number(v));
 
   const [configs, setConfigs] = useState<Array<{ name: string; created_at: string; config: Record<string, unknown> }>>([]);
   const [loading, setLoading] = useState(true);
@@ -212,45 +451,22 @@ function Configure() {
     }
   };
 
+  const handleLoad = (saved: { name: string; config: Record<string, unknown> }) => {
+    const merged = mergeConfig(saved.config);
+    setForm(merged);
+    setConfigName(saved.name);
+    toast.success(`Loaded ${saved.name}`);
+  };
+
   const handleSave = async () => {
     const name = configName.trim();
     if (!name) {
       toast.error("Enter a config name");
       return;
     }
-    const mission_type = mission.toLowerCase().replace(/\s+/g, "_");
     const config = {
-      mission_type,
-      adcs: {
-        has_thrusters: hasThrusters,
-        anomaly_detection: anomalyDet,
-        backup_mode: backupMode,
-        autonomy,
-      },
-      eps: {
-        redundant_power: redundantPower,
-      },
-      comms: {
-        has_ka: hasKa,
-        encryption: commsEnc,
-        multi_gnss: multiGNSS,
-        spread_spectrum: spread,
-        modulation,
-        command_auth: cmdAuth,
-        fallback_chain: fallback,
-      },
-      thermal: {
-        coating,
-      },
-      payload: {},
-      ground_segment: {
-        crosslinks,
-        encryption: gsEnc,
-        net_segmentation: netSeg,
-        firmware_verification: firmware,
-        region,
-      },
-      financial: {},
+      ...form,
+      mission_type: form.mission_type.toLowerCase().replace(/\s+/g, "_"),
     };
     setSaving(true);
     try {
@@ -262,7 +478,6 @@ function Configure() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.success) throw new Error(data?.error || "Failed");
       toast.success("Configuration saved");
-      setConfigName("");
       await loadConfigs();
     } catch (err) {
       toast.error("Failed to save configuration", {
@@ -272,6 +487,13 @@ function Configure() {
       setSaving(false);
     }
   };
+
+  const adcs = form.adcs;
+  const eps = form.eps;
+  const comms = form.comms;
+  const thermal = form.thermal;
+  const payload = form.payload;
+  const gs = form.ground_segment;
 
   return (
     <AppShell title="Satellite Configuration" subtitle="ASSET PROFILE BUILDER · v3">
@@ -314,19 +536,22 @@ function Configure() {
                     <div className="mt-2.5 grid grid-cols-3 gap-1.5 text-[10px] font-mono">
                       <div className="panel-2 px-2 py-1">
                         <div className="text-muted-foreground">ENC</div>
-                        <div>{String(s.config?.enc ?? "—")}</div>
+                        <div>{String((s.config as any)?.comms?.encryption ?? (s.config as any)?.enc ?? "—")}</div>
                       </div>
                       <div className="panel-2 px-2 py-1">
                         <div className="text-muted-foreground">RW</div>
-                        <div>{String(s.config?.wheels ?? "—")}</div>
+                        <div>{String((s.config as any)?.adcs?.reaction_wheels ?? (s.config as any)?.wheels ?? "—")}</div>
                       </div>
                       <div className="panel-2 px-2 py-1">
                         <div className="text-muted-foreground">MOD</div>
-                        <div>{String(s.config?.mod ?? "—")}</div>
+                        <div>{String((s.config as any)?.comms?.modulation ?? (s.config as any)?.mod ?? "—")}</div>
                       </div>
                     </div>
                     <div className="mt-2.5 flex gap-2">
-                      <button className="flex-1 text-xs py-1.5 rounded-md bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25">
+                      <button
+                        onClick={() => handleLoad(s)}
+                        className="flex-1 text-xs py-1.5 rounded-md bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25"
+                      >
                         Load
                       </button>
                       <button
@@ -390,8 +615,8 @@ function Configure() {
             </div>
             <div className="w-72">
               <Select
-                value={mission}
-                onChange={setMission}
+                value={form.mission_type}
+                onChange={(v) => setTop("mission_type", v)}
                 options={["Earth Observation", "Communications", "Navigation", "Scientific"]}
               />
             </div>
@@ -399,164 +624,164 @@ function Configure() {
 
           <Section title="Orbital Parameters" accent="grey">
             <Field label="Altitude (km)">
-              <Input type="number" defaultValue={400} min={200} max={40000} />
+              <Input type="number" value={form.altitude} min={200} max={40000} onChange={(e) => setTop("altitude", num(e.target.value))} />
             </Field>
             <Field label="Inclination (deg)">
-              <Input type="number" defaultValue={51.6} step={0.1} />
+              <Input type="number" value={form.inclination} step={0.1} onChange={(e) => setTop("inclination", num(e.target.value))} />
             </Field>
           </Section>
 
           <Section title="ADCS" accent="cyan">
-            <Field label="Pointing Accuracy (deg)"><Input type="number" defaultValue={0.1} step={0.01} /></Field>
-            <Field label="Reaction Wheels"><Input type="number" defaultValue={4} /></Field>
-            <Field label="Star Trackers"><Input type="number" defaultValue={2} /></Field>
-            <Field label="ST Accuracy (arcsec)"><Input type="number" defaultValue={10} /></Field>
-            <Field label="Gyroscopes"><Input type="number" defaultValue={4} /></Field>
-            <Field label="Gyro Drift (deg/hr)"><Input type="number" defaultValue={1.0} step={0.1} /></Field>
-            <Field label="Slew Rate (deg/s)"><Input type="number" defaultValue={1.0} step={0.1} /></Field>
-            <Field label="Wheel Momentum (Nms)"><Input type="number" defaultValue={50} /></Field>
-            <Field label="Sun Sensors"><Input type="number" defaultValue={6} /></Field>
-            <Field label="Magnetometers"><Input type="number" defaultValue={3} /></Field>
-            <Field label="Magnetorquers"><Input type="number" defaultValue={3} /></Field>
+            <Field label="Pointing Accuracy (deg)"><Input type="number" value={adcs.pointing_accuracy} step={0.01} onChange={(e) => setG("adcs", "pointing_accuracy", num(e.target.value))} /></Field>
+            <Field label="Reaction Wheels"><Input type="number" value={adcs.reaction_wheels} onChange={(e) => setG("adcs", "reaction_wheels", num(e.target.value))} /></Field>
+            <Field label="Star Trackers"><Input type="number" value={adcs.star_trackers} onChange={(e) => setG("adcs", "star_trackers", num(e.target.value))} /></Field>
+            <Field label="ST Accuracy (arcsec)"><Input type="number" value={adcs.st_accuracy} onChange={(e) => setG("adcs", "st_accuracy", num(e.target.value))} /></Field>
+            <Field label="Gyroscopes"><Input type="number" value={adcs.gyroscopes} onChange={(e) => setG("adcs", "gyroscopes", num(e.target.value))} /></Field>
+            <Field label="Gyro Drift (deg/hr)"><Input type="number" value={adcs.gyro_drift} step={0.1} onChange={(e) => setG("adcs", "gyro_drift", num(e.target.value))} /></Field>
+            <Field label="Slew Rate (deg/s)"><Input type="number" value={adcs.slew_rate} step={0.1} onChange={(e) => setG("adcs", "slew_rate", num(e.target.value))} /></Field>
+            <Field label="Wheel Momentum (Nms)"><Input type="number" value={adcs.wheel_momentum} onChange={(e) => setG("adcs", "wheel_momentum", num(e.target.value))} /></Field>
+            <Field label="Sun Sensors"><Input type="number" value={adcs.sun_sensors} onChange={(e) => setG("adcs", "sun_sensors", num(e.target.value))} /></Field>
+            <Field label="Magnetometers"><Input type="number" value={adcs.magnetometers} onChange={(e) => setG("adcs", "magnetometers", num(e.target.value))} /></Field>
+            <Field label="Magnetorquers"><Input type="number" value={adcs.magnetorquers} onChange={(e) => setG("adcs", "magnetorquers", num(e.target.value))} /></Field>
             <div className="col-span-2 md:col-span-3 grid grid-cols-2 gap-3">
-              <CheckRow checked={hasThrusters} onChange={setHasThrusters} label="Has Thrusters" />
-              <CheckRow checked={anomalyDet} onChange={setAnomalyDet} label="Anomaly Detection" />
+              <CheckRow checked={adcs.has_thrusters} onChange={(v) => setG("adcs", "has_thrusters", v)} label="Has Thrusters" />
+              <CheckRow checked={adcs.anomaly_detection} onChange={(v) => setG("adcs", "anomaly_detection", v)} label="Anomaly Detection" />
             </div>
             <Field label="Backup ADCS Mode">
-              <Select value={backupMode} onChange={setBackupMode} options={["None", "Thruster-Based", "Magnetorquer-Based"]} />
+              <Select value={adcs.backup_mode} onChange={(v) => setG("adcs", "backup_mode", v)} options={["None", "Thruster-Based", "Magnetorquer-Based"]} />
             </Field>
-            {backupMode !== "None" && (
-              <Field label="Backup Pointing (deg)"><Input type="number" defaultValue={1.0} step={0.1} /></Field>
+            {adcs.backup_mode !== "None" && (
+              <Field label="Backup Pointing (deg)"><Input type="number" value={adcs.backup_pointing} step={0.1} onChange={(e) => setG("adcs", "backup_pointing", num(e.target.value))} /></Field>
             )}
-            {backupMode === "Thruster-Based" && (
-              <Field label="Switchover Time (s)"><Input type="number" defaultValue={60} /></Field>
+            {adcs.backup_mode === "Thruster-Based" && (
+              <Field label="Switchover Time (s)"><Input type="number" value={adcs.switchover_time} onChange={(e) => setG("adcs", "switchover_time", num(e.target.value))} /></Field>
             )}
             <Field label="Onboard Autonomy">
-              <Select value={autonomy} onChange={setAutonomy} options={["Low", "Medium", "High"]} />
+              <Select value={adcs.autonomy} onChange={(v) => setG("adcs", "autonomy", v)} options={["Low", "Medium", "High"]} />
             </Field>
-            {autonomy !== "Low" && (
-              <Field label="Detection Threshold (s)"><Input type="number" defaultValue={30} /></Field>
+            {adcs.autonomy !== "Low" && (
+              <Field label="Detection Threshold (s)"><Input type="number" value={adcs.detection_threshold} onChange={(e) => setG("adcs", "detection_threshold", num(e.target.value))} /></Field>
             )}
-            <Field label="Propellant Remaining (kg)"><Input type="number" defaultValue={100} /></Field>
-            <Field label="Specific Impulse (s)"><Input type="number" defaultValue={220} /></Field>
+            <Field label="Propellant Remaining (kg)"><Input type="number" value={adcs.propellant} onChange={(e) => setG("adcs", "propellant", num(e.target.value))} /></Field>
+            <Field label="Specific Impulse (s)"><Input type="number" value={adcs.isp} onChange={(e) => setG("adcs", "isp", num(e.target.value))} /></Field>
           </Section>
 
           <Section title="EPS" accent="yellow">
-            <Field label="Solar Panel Area (m²)"><Input type="number" defaultValue={4.0} step={0.1} /></Field>
-            <Field label="Cell Efficiency"><Input type="number" defaultValue={0.30} step={0.01} /></Field>
-            <Field label="Solar Arrays"><Input type="number" defaultValue={2} /></Field>
-            <Field label="Battery (Wh)"><Input type="number" defaultValue={1000} /></Field>
-            <Field label="Battery Cells"><Input type="number" defaultValue={48} /></Field>
-            <Field label="Battery Voltage (V)"><Input type="number" defaultValue={28} /></Field>
-            <Field label="Power Buses"><Input type="number" defaultValue={2} /></Field>
-            <Field label="Nominal Draw (W)"><Input type="number" defaultValue={200} /></Field>
-            <Field label="Peak Draw (W)"><Input type="number" defaultValue={400} /></Field>
+            <Field label="Solar Panel Area (m²)"><Input type="number" value={eps.solar_panel_area} step={0.1} onChange={(e) => setG("eps", "solar_panel_area", num(e.target.value))} /></Field>
+            <Field label="Cell Efficiency"><Input type="number" value={eps.cell_efficiency} step={0.01} onChange={(e) => setG("eps", "cell_efficiency", num(e.target.value))} /></Field>
+            <Field label="Solar Arrays"><Input type="number" value={eps.solar_arrays} onChange={(e) => setG("eps", "solar_arrays", num(e.target.value))} /></Field>
+            <Field label="Battery (Wh)"><Input type="number" value={eps.battery_wh} onChange={(e) => setG("eps", "battery_wh", num(e.target.value))} /></Field>
+            <Field label="Battery Cells"><Input type="number" value={eps.battery_cells} onChange={(e) => setG("eps", "battery_cells", num(e.target.value))} /></Field>
+            <Field label="Battery Voltage (V)"><Input type="number" value={eps.battery_voltage} onChange={(e) => setG("eps", "battery_voltage", num(e.target.value))} /></Field>
+            <Field label="Power Buses"><Input type="number" value={eps.power_buses} onChange={(e) => setG("eps", "power_buses", num(e.target.value))} /></Field>
+            <Field label="Nominal Draw (W)"><Input type="number" value={eps.nominal_draw} onChange={(e) => setG("eps", "nominal_draw", num(e.target.value))} /></Field>
+            <Field label="Peak Draw (W)"><Input type="number" value={eps.peak_draw} onChange={(e) => setG("eps", "peak_draw", num(e.target.value))} /></Field>
             <div className="col-span-2 md:col-span-3">
-              <CheckRow checked={redundantPower} onChange={setRedundantPower} label="Redundant Power" />
+              <CheckRow checked={eps.redundant_power} onChange={(v) => setG("eps", "redundant_power", v)} label="Redundant Power" />
             </div>
           </Section>
 
           <Section title="Comms" accent="green">
-            <Field label="S-Band Antennas"><Input type="number" defaultValue={2} /></Field>
-            <Field label="S-Band Gain (dBi)"><Input type="number" defaultValue={12.0} step={0.1} /></Field>
-            <Field label="S-Band Freq (MHz)"><Input type="number" defaultValue={2200} /></Field>
-            <Field label="S-Band Tx Power (W)"><Input type="number" defaultValue={5.0} step={0.1} /></Field>
-            <Field label="S-Band Data (Mbps)"><Input type="number" defaultValue={10} /></Field>
-            <Field label="X-Band Antennas"><Input type="number" defaultValue={1} /></Field>
-            <Field label="X-Band Gain (dBi)"><Input type="number" defaultValue={25} /></Field>
-            <Field label="X-Band Freq (MHz)"><Input type="number" defaultValue={8400} /></Field>
-            <Field label="X-Band Tx Power (W)"><Input type="number" defaultValue={10} /></Field>
-            <Field label="X-Band Data (Mbps)"><Input type="number" defaultValue={100} /></Field>
-            <Field label="Rx Sensitivity (dBm)"><Input type="number" defaultValue={-110} /></Field>
+            <Field label="S-Band Antennas"><Input type="number" value={comms.s_antennas} onChange={(e) => setG("comms", "s_antennas", num(e.target.value))} /></Field>
+            <Field label="S-Band Gain (dBi)"><Input type="number" value={comms.s_gain} step={0.1} onChange={(e) => setG("comms", "s_gain", num(e.target.value))} /></Field>
+            <Field label="S-Band Freq (MHz)"><Input type="number" value={comms.s_freq} onChange={(e) => setG("comms", "s_freq", num(e.target.value))} /></Field>
+            <Field label="S-Band Tx Power (W)"><Input type="number" value={comms.s_tx_power} step={0.1} onChange={(e) => setG("comms", "s_tx_power", num(e.target.value))} /></Field>
+            <Field label="S-Band Data (Mbps)"><Input type="number" value={comms.s_data} onChange={(e) => setG("comms", "s_data", num(e.target.value))} /></Field>
+            <Field label="X-Band Antennas"><Input type="number" value={comms.x_antennas} onChange={(e) => setG("comms", "x_antennas", num(e.target.value))} /></Field>
+            <Field label="X-Band Gain (dBi)"><Input type="number" value={comms.x_gain} onChange={(e) => setG("comms", "x_gain", num(e.target.value))} /></Field>
+            <Field label="X-Band Freq (MHz)"><Input type="number" value={comms.x_freq} onChange={(e) => setG("comms", "x_freq", num(e.target.value))} /></Field>
+            <Field label="X-Band Tx Power (W)"><Input type="number" value={comms.x_tx_power} onChange={(e) => setG("comms", "x_tx_power", num(e.target.value))} /></Field>
+            <Field label="X-Band Data (Mbps)"><Input type="number" value={comms.x_data} onChange={(e) => setG("comms", "x_data", num(e.target.value))} /></Field>
+            <Field label="Rx Sensitivity (dBm)"><Input type="number" value={comms.rx_sensitivity} onChange={(e) => setG("comms", "rx_sensitivity", num(e.target.value))} /></Field>
             <div className="col-span-2 md:col-span-3 grid grid-cols-2 gap-3">
-              <CheckRow checked={hasKa} onChange={setHasKa} label="Has Ka-Band" />
-              <CheckRow checked={multiGNSS} onChange={setMultiGNSS} label="Multi-GNSS" />
+              <CheckRow checked={comms.has_ka} onChange={(v) => setG("comms", "has_ka", v)} label="Has Ka-Band" />
+              <CheckRow checked={comms.multi_gnss} onChange={(v) => setG("comms", "multi_gnss", v)} label="Multi-GNSS" />
             </div>
             <Field label="Encryption">
-              <Select value={commsEnc} onChange={setCommsEnc} options={["AES-256", "AES-128", "None"]} />
+              <Select value={comms.encryption} onChange={(v) => setG("comms", "encryption", v)} options={["AES-256", "AES-128", "None"]} />
             </Field>
             <Field label="Spread Spectrum">
-              <Select value={spread} onChange={setSpread} options={["None", "FHSS", "DSSS"]} />
+              <Select value={comms.spread_spectrum} onChange={(v) => setG("comms", "spread_spectrum", v)} options={["None", "FHSS", "DSSS"]} />
             </Field>
-            <Field label="GPS Anti-Jam Margin (dB)"><Input type="number" defaultValue={0} max={30} /></Field>
+            <Field label="GPS Anti-Jam Margin (dB)"><Input type="number" value={comms.gps_aj_margin} max={30} onChange={(e) => setG("comms", "gps_aj_margin", num(e.target.value))} /></Field>
             <Field label="Modulation Scheme">
-              <Select value={modulation} onChange={setModulation} options={["BPSK", "QPSK", "8PSK"]} />
+              <Select value={comms.modulation} onChange={(v) => setG("comms", "modulation", v)} options={["BPSK", "QPSK", "8PSK"]} />
             </Field>
             <Field label="Command Authentication">
-              <Select value={cmdAuth} onChange={setCmdAuth} options={["None", "Seq Counter", "HMAC-SHA256", "Digital Sig"]} />
+              <Select value={comms.command_auth} onChange={(v) => setG("comms", "command_auth", v)} options={["None", "Seq Counter", "HMAC-SHA256", "Digital Sig"]} />
             </Field>
             <div className="col-span-2 md:col-span-3 panel-2 p-3 rounded-md">
               <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground mb-2">
                 Frequency Fallback Chain · Ordered Ka→X→S→UHF (checked = included)
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                <CheckRow checked={fallback.ka} onChange={(v) => setFallback({ ...fallback, ka: v })} label="Ka-Band" />
-                <CheckRow checked={fallback.x} onChange={(v) => setFallback({ ...fallback, x: v })} label="X-Band" />
-                <CheckRow checked={fallback.s} onChange={(v) => setFallback({ ...fallback, s: v })} label="S-Band" />
-                <CheckRow checked={fallback.uhf} onChange={(v) => setFallback({ ...fallback, uhf: v })} label="UHF" />
+                <CheckRow checked={comms.fallback_chain.ka} onChange={(v) => setFallback("ka", v)} label="Ka-Band" />
+                <CheckRow checked={comms.fallback_chain.x} onChange={(v) => setFallback("x", v)} label="X-Band" />
+                <CheckRow checked={comms.fallback_chain.s} onChange={(v) => setFallback("s", v)} label="S-Band" />
+                <CheckRow checked={comms.fallback_chain.uhf} onChange={(v) => setFallback("uhf", v)} label="UHF" />
               </div>
             </div>
           </Section>
 
           <Section title="Thermal" accent="orange">
-            <Field label="Radiator Area (m²)"><Input type="number" defaultValue={2.0} step={0.1} /></Field>
-            <Field label="Emissivity"><Input type="number" defaultValue={0.85} step={0.01} /></Field>
-            <Field label="Heaters"><Input type="number" defaultValue={6} /></Field>
-            <Field label="Heater Power (W)"><Input type="number" defaultValue={10} /></Field>
-            <Field label="MLI Layers"><Input type="number" defaultValue={15} /></Field>
-            <Field label="Min Op Temp (°C)"><Input type="number" defaultValue={-20} /></Field>
-            <Field label="Max Op Temp (°C)"><Input type="number" defaultValue={50} /></Field>
-            <Field label="Batt Min Temp (°C)"><Input type="number" defaultValue={0} /></Field>
-            <Field label="Batt Max Temp (°C)"><Input type="number" defaultValue={40} /></Field>
-            <Field label="Heat Pipes"><Input type="number" defaultValue={4} /></Field>
+            <Field label="Radiator Area (m²)"><Input type="number" value={thermal.radiator_area} step={0.1} onChange={(e) => setG("thermal", "radiator_area", num(e.target.value))} /></Field>
+            <Field label="Emissivity"><Input type="number" value={thermal.emissivity} step={0.01} onChange={(e) => setG("thermal", "emissivity", num(e.target.value))} /></Field>
+            <Field label="Heaters"><Input type="number" value={thermal.heaters} onChange={(e) => setG("thermal", "heaters", num(e.target.value))} /></Field>
+            <Field label="Heater Power (W)"><Input type="number" value={thermal.heater_power} onChange={(e) => setG("thermal", "heater_power", num(e.target.value))} /></Field>
+            <Field label="MLI Layers"><Input type="number" value={thermal.mli_layers} onChange={(e) => setG("thermal", "mli_layers", num(e.target.value))} /></Field>
+            <Field label="Min Op Temp (°C)"><Input type="number" value={thermal.min_op_temp} onChange={(e) => setG("thermal", "min_op_temp", num(e.target.value))} /></Field>
+            <Field label="Max Op Temp (°C)"><Input type="number" value={thermal.max_op_temp} onChange={(e) => setG("thermal", "max_op_temp", num(e.target.value))} /></Field>
+            <Field label="Batt Min Temp (°C)"><Input type="number" value={thermal.batt_min_temp} onChange={(e) => setG("thermal", "batt_min_temp", num(e.target.value))} /></Field>
+            <Field label="Batt Max Temp (°C)"><Input type="number" value={thermal.batt_max_temp} onChange={(e) => setG("thermal", "batt_max_temp", num(e.target.value))} /></Field>
+            <Field label="Heat Pipes"><Input type="number" value={thermal.heat_pipes} onChange={(e) => setG("thermal", "heat_pipes", num(e.target.value))} /></Field>
             <Field label="Coating">
-              <Select value={coating} onChange={setCoating} options={["White Paint", "OSR", "Gold Foil"]} />
+              <Select value={thermal.coating} onChange={(v) => setG("thermal", "coating", v)} options={["White Paint", "OSR", "Gold Foil"]} />
             </Field>
           </Section>
 
           <Section title="Payload" accent="purple">
-            <Field label="Optical Aperture (m)"><Input type="number" defaultValue={0.5} step={0.1} /></Field>
-            <Field label="Focal Length (m)"><Input type="number" defaultValue={5.0} step={0.1} /></Field>
-            <Field label="GSD (m)"><Input type="number" defaultValue={1.0} step={0.1} /></Field>
-            <Field label="Data Rate (Gbps)"><Input type="number" defaultValue={2.0} step={0.1} /></Field>
-            <Field label="Storage (GB)"><Input type="number" defaultValue={500} /></Field>
-            <Field label="Power Draw (W)"><Input type="number" defaultValue={100} /></Field>
-            <Field label="Pointing Req (deg)"><Input type="number" defaultValue={0.01} step={0.01} /></Field>
+            <Field label="Optical Aperture (m)"><Input type="number" value={payload.optical_aperture} step={0.1} onChange={(e) => setG("payload", "optical_aperture", num(e.target.value))} /></Field>
+            <Field label="Focal Length (m)"><Input type="number" value={payload.focal_length} step={0.1} onChange={(e) => setG("payload", "focal_length", num(e.target.value))} /></Field>
+            <Field label="GSD (m)"><Input type="number" value={payload.gsd} step={0.1} onChange={(e) => setG("payload", "gsd", num(e.target.value))} /></Field>
+            <Field label="Data Rate (Gbps)"><Input type="number" value={payload.data_rate} step={0.1} onChange={(e) => setG("payload", "data_rate", num(e.target.value))} /></Field>
+            <Field label="Storage (GB)"><Input type="number" value={payload.storage} onChange={(e) => setG("payload", "storage", num(e.target.value))} /></Field>
+            <Field label="Power Draw (W)"><Input type="number" value={payload.power_draw} onChange={(e) => setG("payload", "power_draw", num(e.target.value))} /></Field>
+            <Field label="Pointing Req (deg)"><Input type="number" value={payload.pointing_req} step={0.01} onChange={(e) => setG("payload", "pointing_req", num(e.target.value))} /></Field>
           </Section>
 
           <Section title="Ground Segment" accent="red">
-            <Field label="Ground Stations"><Input type="number" defaultValue={3} /></Field>
-            <Field label="Uplink Freq (MHz)"><Input type="number" defaultValue={2025} /></Field>
-            <Field label="Downlink Freq (MHz)"><Input type="number" defaultValue={2200} /></Field>
-            <Field label="Antenna Gain (dBi)"><Input type="number" defaultValue={20} /></Field>
-            <Field label="Ground Tx Power (W)"><Input type="number" defaultValue={100} /></Field>
-            <Field label="Contact Window (min)"><Input type="number" defaultValue={10} /></Field>
-            <Field label="Passes/Day"><Input type="number" defaultValue={6} /></Field>
+            <Field label="Ground Stations"><Input type="number" value={gs.ground_stations} onChange={(e) => setG("ground_segment", "ground_stations", num(e.target.value))} /></Field>
+            <Field label="Uplink Freq (MHz)"><Input type="number" value={gs.uplink_freq} onChange={(e) => setG("ground_segment", "uplink_freq", num(e.target.value))} /></Field>
+            <Field label="Downlink Freq (MHz)"><Input type="number" value={gs.downlink_freq} onChange={(e) => setG("ground_segment", "downlink_freq", num(e.target.value))} /></Field>
+            <Field label="Antenna Gain (dBi)"><Input type="number" value={gs.antenna_gain} onChange={(e) => setG("ground_segment", "antenna_gain", num(e.target.value))} /></Field>
+            <Field label="Ground Tx Power (W)"><Input type="number" value={gs.ground_tx_power} onChange={(e) => setG("ground_segment", "ground_tx_power", num(e.target.value))} /></Field>
+            <Field label="Contact Window (min)"><Input type="number" value={gs.contact_window} onChange={(e) => setG("ground_segment", "contact_window", num(e.target.value))} /></Field>
+            <Field label="Passes/Day"><Input type="number" value={gs.passes_per_day} onChange={(e) => setG("ground_segment", "passes_per_day", num(e.target.value))} /></Field>
             <div className="col-span-2 md:col-span-3">
-              <CheckRow checked={crosslinks} onChange={setCrosslinks} label="Has Crosslinks" />
+              <CheckRow checked={gs.crosslinks} onChange={(v) => setG("ground_segment", "crosslinks", v)} label="Has Crosslinks" />
             </div>
             <Field label="Encryption">
-              <Select value={gsEnc} onChange={setGsEnc} options={["AES-256", "AES-128", "None"]} />
+              <Select value={gs.encryption} onChange={(v) => setG("ground_segment", "encryption", v)} options={["AES-256", "AES-128", "None"]} />
             </Field>
             <Field label="Net Segmentation">
-              <Select value={netSeg} onChange={setNetSeg} options={["Basic", "None", "Zero-Trust"]} />
+              <Select value={gs.net_segmentation} onChange={(v) => setG("ground_segment", "net_segmentation", v)} options={["Basic", "None", "Zero-Trust"]} />
             </Field>
             <Field label="Firmware Verification">
-              <Select value={firmware} onChange={setFirmware} options={["Software Signature", "Hardware Root of Trust", "No Verification"]} />
+              <Select value={gs.firmware_verification} onChange={(v) => setG("ground_segment", "firmware_verification", v)} options={["Software Signature", "Hardware Root of Trust", "No Verification"]} />
             </Field>
             <Field label="GS Region">
-              <Select value={region} onChange={setRegion} options={["Global Distribution", "North America", "Europe", "Middle East", "Asia Pacific"]} />
+              <Select value={gs.region} onChange={(v) => setG("ground_segment", "region", v)} options={["Global Distribution", "North America", "Europe", "Middle East", "Asia Pacific"]} />
             </Field>
           </Section>
 
           <Section title="Radiation Hardening" accent="darkpurple">
-            <Field label="Total Ionizing Dose (krad)"><Input type="number" defaultValue={20} /></Field>
+            <Field label="Total Ionizing Dose (krad)"><Input type="number" value={form.radiation.tid_krad} onChange={(e) => setG("radiation", "tid_krad", num(e.target.value))} /></Field>
           </Section>
 
           <Section title="Financial Parameters" accent="darkgreen">
-            <Field label="Downtime Rate ($/hr)"><Input type="number" defaultValue={15000} /></Field>
-            <Field label="Asset Value ($M)"><Input type="number" defaultValue={300} /></Field>
-            <Field label="Recovery Ops Rate ($/hr)"><Input type="number" defaultValue={5000} /></Field>
+            <Field label="Downtime Rate ($/hr)"><Input type="number" value={form.financial.downtime_rate} onChange={(e) => setG("financial", "downtime_rate", num(e.target.value))} /></Field>
+            <Field label="Asset Value ($M)"><Input type="number" value={form.financial.asset_value} onChange={(e) => setG("financial", "asset_value", num(e.target.value))} /></Field>
+            <Field label="Recovery Ops Rate ($/hr)"><Input type="number" value={form.financial.recovery_ops_rate} onChange={(e) => setG("financial", "recovery_ops_rate", num(e.target.value))} /></Field>
           </Section>
 
           <div className="flex items-center gap-2 pt-2">
