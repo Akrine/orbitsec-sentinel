@@ -329,7 +329,10 @@ function Configure() {
                       <button className="flex-1 text-xs py-1.5 rounded-md bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25">
                         Load
                       </button>
-                      <button className="px-3 py-1.5 rounded-md panel-2 text-muted-foreground hover:text-critical hover:border-critical/40">
+                      <button
+                        onClick={() => handleDelete(s.name)}
+                        className="px-3 py-1.5 rounded-md panel-2 text-muted-foreground hover:text-critical hover:border-critical/40"
+                      >
                         Delete
                       </button>
                     </div>
