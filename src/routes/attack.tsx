@@ -197,6 +197,7 @@ function Attack() {
         throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
       }
       setResult(data);
+      setCompletedAt(new Date());
       toast.success("Simulation complete");
     } catch (e: any) {
       setError(e?.message ?? "Simulation failed");
