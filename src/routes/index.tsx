@@ -171,7 +171,7 @@ function Dashboard() {
     { to: "/attack", title: "Run New Simulation", desc: "Single-satellite attack scenario", code: "SIM", accent: "from-critical/20 to-transparent" },
     { to: "/constellation", title: "Constellation Mode", desc: "Cascading multi-asset breach", code: "CST", accent: "from-primary/20 to-transparent" },
     { to: "/adversary", title: "AI Adversary", desc: "Autonomous red-team agent", code: "ADV", accent: "from-high/20 to-transparent" },
-    { to: "/reports", title: "View Reports", desc: `${totalReports.toLocaleString()} archived assessments`, code: "RPT", accent: "from-low/20 to-transparent" },
+    { to: "/reports", title: "View Reports", desc: `${totalReports.toLocaleString()} archived ${totalReports === 1 ? "assessment" : "assessments"}`, code: "RPT", accent: "from-low/20 to-transparent" },
   ] as const;
 
   return (
