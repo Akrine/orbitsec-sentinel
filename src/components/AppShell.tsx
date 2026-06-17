@@ -1,6 +1,21 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
-import { logout } from "@/lib/api";
+import { useState, useEffect, type ReactNode } from "react";
+import { logout, getToken } from "@/lib/api";
+
+function decodeUsername(): string {
+  try {
+    const t = getToken();
+    if (!t) return "Authenticated";
+    const parts = t.split(".");
+    if (parts.length !== 3) return "Authenticated";
+    const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = payload + "=".repeat((4 - (payload.length % 4)) % 4);
+    const json = JSON.parse(atob(padded));
+    return typeof json.sub === "string" && json.sub ? json.sub : "Authenticated";
+  } catch {
+    return "Authenticated";
+  }
+}
 
 const NAV = [
   { to: "/", label: "Dashboard" },
