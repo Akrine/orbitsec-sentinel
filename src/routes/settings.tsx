@@ -180,7 +180,7 @@ function SettingsPage() {
               <div>
                 <div className="text-sm">Simulation History</div>
                 <div className="text-[11px] font-mono text-muted-foreground">
-                  {reportsLoading ? "Loading..." : `${reports.length} assessments`}
+                  {reportsLoading ? "Loading..." : pluralize(reports.length, "assessment")}
                 </div>
               </div>
               <div className="flex gap-2">
