@@ -66,16 +66,22 @@ function fmtUTC(iso: string): string {
 function fmtHeaderNow(d: Date): string {
   const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(d.getUTCDate())} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}Z`;
+  const h = d.getHours();
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hr12 = h % 12 || 12;
+  const parts = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" }).formatToParts(d);
+  const tz = parts.find((p) => p.type === "timeZoneName")?.value ?? "";
+  return `${pad(d.getDate())} ${months[d.getMonth()]} ${d.getFullYear()} · ${hr12}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${ampm} ${tz}`;
 }
 
 function Dashboard() {
   const [reports, setReports] = useState<Report[] | null>(null);
   const [configCount, setConfigCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [now, setNow] = useState<Date>(() => new Date());
+  const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
+    setNow(new Date());
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
@@ -169,7 +175,7 @@ function Dashboard() {
   ] as const;
 
   return (
-    <AppShell title="Operations Overview" subtitle={`OPERATIONS OVERVIEW · ${fmtHeaderNow(now)}`}>
+    <AppShell title="Operations Overview" subtitle={now ? fmtHeaderNow(now) : "—"}>
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {STATS.map((s) => (
