@@ -109,7 +109,7 @@ function SettingsPage() {
   async function clearAllConfigs() {
     const n = configs.length;
     if (n === 0) return;
-    if (!window.confirm(`Delete all ${n} saved configurations? This cannot be undone.`)) return;
+    if (!window.confirm(`Delete all ${pluralize(n, "configuration")}? This cannot be undone.`)) return;
     setClearingConfigs(true);
     let failed = 0;
     for (const c of configs) {
