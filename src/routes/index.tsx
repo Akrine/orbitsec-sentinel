@@ -175,7 +175,7 @@ function Dashboard() {
   ] as const;
 
   return (
-    <AppShell title="Operations Overview" subtitle={`OPERATIONS OVERVIEW · ${fmtHeaderNow(now)}`}>
+    <AppShell title="Operations Overview" subtitle={now ? fmtHeaderNow(now) : "—"}>
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {STATS.map((s) => (
