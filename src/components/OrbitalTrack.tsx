@@ -344,7 +344,7 @@ export function OrbitalTrack({
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="panel-2 px-2.5 py-1.5">
+    <div className="panel-2 px-2 py-1">
       <div className="text-[9px] font-mono uppercase tracking-[0.12em] text-muted-foreground">
         {label}
       </div>
