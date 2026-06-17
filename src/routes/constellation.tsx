@@ -472,7 +472,7 @@ function Constellation() {
         <div className="mt-6">
           <div className="flex items-center gap-2 mb-3">
             <h2 className="text-xs font-mono uppercase tracking-[0.16em] text-muted-foreground">Constellation Results</h2>
-            <span className="text-[10px] font-mono text-muted-foreground">· {result.satellite_results.length} ASSETS</span>
+            <span className="text-[10px] font-mono text-muted-foreground">· {pluralize(result.satellite_results.length, "ASSET")}</span>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
