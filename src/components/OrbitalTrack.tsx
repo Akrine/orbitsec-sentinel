@@ -74,7 +74,7 @@ export function OrbitalTrack({
   satelliteName: string;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [width, setWidth] = useState(800);
+  const [containerWidth, setContainerWidth] = useState(800);
   const [land, setLand] = useState<FeatureCollection | null>(null);
   const [track, setTrack] = useState<GroundTrack | null>(null);
   const [params, setParams] = useState<OrbitalParams | null>(null);
@@ -82,15 +82,17 @@ export function OrbitalTrack({
   const [error, setError] = useState(false);
   const [now, setNow] = useState<Date | null>(null);
 
+  const MAP_MAX_HEIGHT = 300;
+
   // resize observer
   useEffect(() => {
     if (!containerRef.current) return;
     const el = containerRef.current;
     const ro = new ResizeObserver((entries) => {
-      for (const e of entries) setWidth(Math.max(320, e.contentRect.width));
+      for (const e of entries) setContainerWidth(Math.max(320, e.contentRect.width));
     });
     ro.observe(el);
-    setWidth(el.clientWidth || 800);
+    setContainerWidth(el.clientWidth || 800);
     return () => ro.disconnect();
   }, []);
 
@@ -145,13 +147,14 @@ export function OrbitalTrack({
     };
   }, [noradId]);
 
-  const height = Math.round(width / 2);
+  const renderHeight = Math.min(MAP_MAX_HEIGHT, Math.round(containerWidth / 2));
+  const renderWidth = renderHeight * 2;
 
   const projection = useMemo(() => {
     return geoEquirectangular()
-      .scale(width / (2 * Math.PI))
-      .translate([width / 2, height / 2]);
-  }, [width, height]);
+      .scale(renderWidth / (2 * Math.PI))
+      .translate([renderWidth / 2, renderHeight / 2]);
+  }, [renderWidth, renderHeight]);
 
   const pathGen = useMemo(() => geoPath(projection), [projection]);
 
@@ -232,12 +235,12 @@ export function OrbitalTrack({
         </span>
       </div>
 
-      <div className="p-4">
-        <div ref={containerRef} className="w-full relative">
+      <div className="p-3">
+        <div ref={containerRef} className="w-full relative flex justify-center">
           {loading && (
             <div
               className="w-full flex items-center justify-center text-[11px] font-mono tracking-[0.18em] text-muted-foreground"
-              style={{ height }}
+              style={{ height: renderHeight }}
             >
               ACQUIRING ORBITAL TRACK…
             </div>
@@ -245,16 +248,16 @@ export function OrbitalTrack({
           {error && !loading && (
             <div
               className="w-full flex items-center justify-center text-[11px] font-mono tracking-[0.18em] text-critical"
-              style={{ height }}
+              style={{ height: renderHeight }}
             >
               ORBITAL DATA UNAVAILABLE
             </div>
           )}
           {!loading && !error && (
             <svg
-              width={width}
-              height={height}
-              viewBox={`0 0 ${width} ${height}`}
+              width={renderWidth}
+              height={renderHeight}
+              viewBox={`0 0 ${renderWidth} ${renderHeight}`}
               className="block bg-[oklch(0.18_0.02_240/0.4)] border border-border rounded-md"
             >
               {/* graticule */}
@@ -308,7 +311,7 @@ export function OrbitalTrack({
 
         {/* info overlay */}
         {!loading && !error && params && (
-          <div className="mt-3 grid grid-cols-2 md:grid-cols-6 gap-2">
+          <div className="mt-2 grid grid-cols-2 md:grid-cols-6 gap-1.5">
             <Info label="ORBIT TYPE" value={params.orbit_type} />
             <Info label="ALTITUDE" value={`${params.altitude_km.toFixed(1)} km`} />
             <Info label="INCLINATION" value={`${params.inclination_deg.toFixed(2)}°`} />
@@ -341,7 +344,7 @@ export function OrbitalTrack({
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="panel-2 px-2.5 py-1.5">
+    <div className="panel-2 px-2 py-1">
       <div className="text-[9px] font-mono uppercase tracking-[0.12em] text-muted-foreground">
         {label}
       </div>
