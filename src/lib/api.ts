@@ -46,5 +46,13 @@ export async function apiFetch(
     headers.set("Content-Type", "application/json");
   }
   const url = path.startsWith("http") ? path : `${baseURL}${path}`;
-  return fetch(url, { ...options, headers });
+  const res = await fetch(url, { ...options, headers });
+  if (res.status === 401) {
+    logout();
+    if (typeof window !== "undefined") {
+      window.location.href = "/login";
+    }
+    throw new Error("Session expired. Redirecting to login.");
+  }
+  return res;
 }
