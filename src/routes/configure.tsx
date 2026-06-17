@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell, Panel } from "@/components/AppShell";
+import { OrbitalTrack } from "@/components/OrbitalTrack";
 import { apiFetch } from "@/lib/api";
 import { useActiveSatellite } from "@/lib/activeSatellite";
 
@@ -964,6 +965,18 @@ function Configure() {
           ACTIVE FOR SIMULATION: {activeName}
         </div>
       )}
+      <div className="mb-4">
+        <OrbitalTrack
+          noradId={form.norad_id && form.norad_id > 0 ? form.norad_id : 39634}
+          satelliteName={
+            selectedTarget ||
+            activeName ||
+            (form.norad_id && form.norad_id > 0
+              ? `NORAD ${form.norad_id}`
+              : "Sentinel-1A")
+          }
+        />
+      </div>
       <div className="grid grid-cols-1 xl:grid-cols-[340px_1fr] gap-4">
         {/* LEFT: Saved + TLE */}
         <div className="space-y-4">
