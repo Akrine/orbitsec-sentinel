@@ -147,13 +147,14 @@ export function OrbitalTrack({
     };
   }, [noradId]);
 
-  const height = Math.round(width / 2);
+  const renderHeight = Math.min(MAP_MAX_HEIGHT, Math.round(containerWidth / 2));
+  const renderWidth = renderHeight * 2;
 
   const projection = useMemo(() => {
     return geoEquirectangular()
-      .scale(width / (2 * Math.PI))
-      .translate([width / 2, height / 2]);
-  }, [width, height]);
+      .scale(renderWidth / (2 * Math.PI))
+      .translate([renderWidth / 2, renderHeight / 2]);
+  }, [renderWidth, renderHeight]);
 
   const pathGen = useMemo(() => geoPath(projection), [projection]);
 
