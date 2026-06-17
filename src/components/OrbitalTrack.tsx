@@ -74,7 +74,7 @@ export function OrbitalTrack({
   satelliteName: string;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [width, setWidth] = useState(800);
+  const [containerWidth, setContainerWidth] = useState(800);
   const [land, setLand] = useState<FeatureCollection | null>(null);
   const [track, setTrack] = useState<GroundTrack | null>(null);
   const [params, setParams] = useState<OrbitalParams | null>(null);
@@ -82,15 +82,17 @@ export function OrbitalTrack({
   const [error, setError] = useState(false);
   const [now, setNow] = useState<Date | null>(null);
 
+  const MAP_MAX_HEIGHT = 300;
+
   // resize observer
   useEffect(() => {
     if (!containerRef.current) return;
     const el = containerRef.current;
     const ro = new ResizeObserver((entries) => {
-      for (const e of entries) setWidth(Math.max(320, e.contentRect.width));
+      for (const e of entries) setContainerWidth(Math.max(320, e.contentRect.width));
     });
     ro.observe(el);
-    setWidth(el.clientWidth || 800);
+    setContainerWidth(el.clientWidth || 800);
     return () => ro.disconnect();
   }, []);
 
