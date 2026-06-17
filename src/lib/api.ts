@@ -1,4 +1,8 @@
 const baseURL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8001";
+
+export function pluralize(count: number, singular: string, plural = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
 const TOKEN_KEY = "orbitsec_token";
 
 export function getToken(): string | null {
