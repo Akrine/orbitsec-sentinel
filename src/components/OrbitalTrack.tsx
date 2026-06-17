@@ -311,7 +311,7 @@ export function OrbitalTrack({
 
         {/* info overlay */}
         {!loading && !error && params && (
-          <div className="mt-3 grid grid-cols-2 md:grid-cols-6 gap-2">
+          <div className="mt-2 grid grid-cols-2 md:grid-cols-6 gap-1.5">
             <Info label="ORBIT TYPE" value={params.orbit_type} />
             <Info label="ALTITUDE" value={`${params.altitude_km.toFixed(1)} km`} />
             <Info label="INCLINATION" value={`${params.inclination_deg.toFixed(2)}°`} />
