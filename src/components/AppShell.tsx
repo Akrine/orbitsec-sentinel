@@ -1,6 +1,21 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
-import { logout } from "@/lib/api";
+import { useState, useEffect, type ReactNode } from "react";
+import { logout, getToken } from "@/lib/api";
+
+function decodeUsername(): string {
+  try {
+    const t = getToken();
+    if (!t) return "Authenticated";
+    const parts = t.split(".");
+    if (parts.length !== 3) return "Authenticated";
+    const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = payload + "=".repeat((4 - (payload.length % 4)) % 4);
+    const json = JSON.parse(atob(padded));
+    return typeof json.sub === "string" && json.sub ? json.sub : "Authenticated";
+  } catch {
+    return "Authenticated";
+  }
+}
 
 const NAV = [
   { to: "/", label: "Dashboard" },
@@ -22,6 +37,27 @@ export function AppShell({ children, title, subtitle, actions }: {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
+  const [username, setUsername] = useState("Authenticated");
+  const [health, setHealth] = useState<"unknown" | "online" | "offline">("unknown");
+
+  useEffect(() => {
+    setUsername(decodeUsername());
+    const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:8001";
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const r = await fetch(`${base}/health`);
+        if (!cancelled) setHealth(r.ok ? "online" : "offline");
+      } catch {
+        if (!cancelled) setHealth("offline");
+      }
+    };
+    check();
+    const id = setInterval(check, 30000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  const userInitials = username.slice(0, 2).toUpperCase();
 
   return (
     <div className="dark min-h-screen flex bg-background text-foreground">
@@ -78,11 +114,10 @@ export function AppShell({ children, title, subtitle, actions }: {
           {!collapsed ? (
             <div className="flex items-center gap-2.5">
               <div className="h-8 w-8 rounded-md bg-gradient-to-br from-primary/30 to-accent/30 border border-border flex items-center justify-center text-xs font-semibold font-mono">
-                MR
+                {userInitials}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium truncate">Maj. M. Reyes</div>
-                <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">SOC · L4 Clearance</div>
+                <div className="text-xs font-medium truncate">{username}</div>
               </div>
               <button
                 onClick={() => { logout(); navigate({ to: "/login" }); }}
@@ -93,7 +128,7 @@ export function AppShell({ children, title, subtitle, actions }: {
             </div>
           ) : (
             <div className="h-8 w-8 mx-auto rounded-md bg-gradient-to-br from-primary/30 to-accent/30 border border-border flex items-center justify-center text-xs font-semibold font-mono">
-              MR
+              {userInitials}
             </div>
           )}
         </div>
@@ -112,14 +147,12 @@ export function AppShell({ children, title, subtitle, actions }: {
               <input placeholder="Search satellites, sims, reports…" className="bg-transparent outline-none flex-1 text-foreground placeholder:text-muted-foreground" />
               <kbd className="font-mono text-[10px] px-1 py-0.5 rounded border border-border bg-background text-muted-foreground">⌘K</kbd>
             </div>
-            <button className="h-8 w-8 panel flex items-center justify-center text-muted-foreground hover:text-foreground relative">
-              <span className="text-[10px] font-mono">ALRT</span>
-              <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-critical pulse-dot" />
-            </button>
             <div className="hidden lg:flex items-center gap-1.5 panel px-2.5 py-1.5 text-[11px] font-mono uppercase tracking-wider">
-              <span className="h-1.5 w-1.5 rounded-full bg-success pulse-dot" />
+              <span className={`h-1.5 w-1.5 rounded-full ${health === "online" ? "bg-success pulse-dot" : health === "offline" ? "bg-critical" : "bg-muted-foreground"}`} />
               <span className="text-muted-foreground">SYS</span>
-              <span className="text-success">NOMINAL</span>
+              <span className={health === "online" ? "text-success" : health === "offline" ? "text-critical" : "text-muted-foreground"}>
+                {health === "online" ? "ONLINE" : health === "offline" ? "OFFLINE" : "…"}
+              </span>
             </div>
             {actions}
           </div>
