@@ -147,14 +147,12 @@ export function AppShell({ children, title, subtitle, actions }: {
               <input placeholder="Search satellites, sims, reports…" className="bg-transparent outline-none flex-1 text-foreground placeholder:text-muted-foreground" />
               <kbd className="font-mono text-[10px] px-1 py-0.5 rounded border border-border bg-background text-muted-foreground">⌘K</kbd>
             </div>
-            <button className="h-8 w-8 panel flex items-center justify-center text-muted-foreground hover:text-foreground relative">
-              <span className="text-[10px] font-mono">ALRT</span>
-              <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-critical pulse-dot" />
-            </button>
             <div className="hidden lg:flex items-center gap-1.5 panel px-2.5 py-1.5 text-[11px] font-mono uppercase tracking-wider">
-              <span className="h-1.5 w-1.5 rounded-full bg-success pulse-dot" />
+              <span className={`h-1.5 w-1.5 rounded-full ${health === "online" ? "bg-success pulse-dot" : health === "offline" ? "bg-critical" : "bg-muted-foreground"}`} />
               <span className="text-muted-foreground">SYS</span>
-              <span className="text-success">NOMINAL</span>
+              <span className={health === "online" ? "text-success" : health === "offline" ? "text-critical" : "text-muted-foreground"}>
+                {health === "online" ? "ONLINE" : health === "offline" ? "OFFLINE" : "…"}
+              </span>
             </div>
             {actions}
           </div>
