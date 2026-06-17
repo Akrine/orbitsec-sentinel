@@ -235,7 +235,7 @@ export function OrbitalTrack({
         </span>
       </div>
 
-      <div className="p-4">
+      <div className="p-3">
         <div ref={containerRef} className="w-full relative flex justify-center">
           {loading && (
             <div
