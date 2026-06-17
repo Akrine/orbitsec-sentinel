@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppShell, Panel } from "@/components/AppShell";
 import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
-import { apiFetch, logout } from "@/lib/api";
+import { apiFetch, logout, pluralize } from "@/lib/api";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -109,7 +109,7 @@ function SettingsPage() {
   async function clearAllConfigs() {
     const n = configs.length;
     if (n === 0) return;
-    if (!window.confirm(`Delete all ${n} saved configurations? This cannot be undone.`)) return;
+    if (!window.confirm(`Delete all ${pluralize(n, "configuration")}? This cannot be undone.`)) return;
     setClearingConfigs(true);
     let failed = 0;
     for (const c of configs) {
@@ -123,8 +123,8 @@ function SettingsPage() {
       }
     }
     setClearingConfigs(false);
-    if (failed) toast.error(`${failed} deletion(s) failed`);
-    else toast.success(`Deleted ${n} configuration(s)`);
+    if (failed) toast.error(`${pluralize(failed, "deletion")} failed`);
+    else toast.success(`Deleted ${pluralize(n, "configuration")}`);
     loadConfigs();
   }
 
@@ -180,7 +180,7 @@ function SettingsPage() {
               <div>
                 <div className="text-sm">Simulation History</div>
                 <div className="text-[11px] font-mono text-muted-foreground">
-                  {reportsLoading ? "Loading..." : `${reports.length} assessments`}
+                  {reportsLoading ? "Loading..." : pluralize(reports.length, "assessment")}
                 </div>
               </div>
               <div className="flex gap-2">

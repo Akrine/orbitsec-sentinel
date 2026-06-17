@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { AppShell, Panel } from "@/components/AppShell";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, pluralize } from "@/lib/api";
 import { useActiveSatellite } from "@/lib/activeSatellite";
 
 export const Route = createFileRoute("/adversary")({
@@ -223,7 +223,7 @@ function Adversary() {
             title="Live Iteration Feed"
             action={
               result ? (
-                <span className="text-[10px] font-mono text-muted-foreground">{result.iterations_run} iterations</span>
+                <span className="text-[10px] font-mono text-muted-foreground">{pluralize(result.iterations_run, "iteration")}</span>
               ) : null
             }
           >
@@ -233,7 +233,7 @@ function Adversary() {
                   <span className="h-2.5 w-2.5 rounded-full bg-[oklch(0.55_0.22_300)] pulse-dot" />
                   <div className="flex-1 min-w-0">
                     <div className="text-[12px] font-mono uppercase tracking-[0.16em] font-semibold text-[oklch(0.7_0.18_300)]">
-                      Deploying Adversary — running {iters} iterations
+                      Deploying Adversary — running {pluralize(iters, "iteration")}
                     </div>
                     <div className="text-[10px] font-mono text-muted-foreground mt-1">
                       This may take 30–90 seconds. Real LLM agent loop in progress.

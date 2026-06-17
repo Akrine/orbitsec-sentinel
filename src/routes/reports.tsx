@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, pluralize } from "@/lib/api";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/reports")({
@@ -223,7 +223,7 @@ function Reports() {
 
   const deleteSelected = async () => {
     if (selected.size === 0) return;
-    if (!window.confirm(`Delete ${selected.size} selected report(s)?`)) return;
+    if (!window.confirm(`Delete ${pluralize(selected.size, "selected report")}?`)) return;
     setBusy(true);
     try {
       const ids = Array.from(selected);
@@ -232,7 +232,7 @@ function Reports() {
       );
       const failed = results.filter((r) => r.status === "rejected" || (r.status === "fulfilled" && !r.value.ok)).length;
       if (failed) toast.error(`${failed} deletion(s) failed`);
-      else toast.success(`Deleted ${ids.length} report(s)`);
+      else toast.success(`Deleted ${pluralize(ids.length, "report")}`);
       setSelected(new Set());
       await load();
     } finally {
