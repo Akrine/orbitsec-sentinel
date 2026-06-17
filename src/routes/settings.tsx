@@ -123,8 +123,8 @@ function SettingsPage() {
       }
     }
     setClearingConfigs(false);
-    if (failed) toast.error(`${failed} deletion(s) failed`);
-    else toast.success(`Deleted ${n} configuration(s)`);
+    if (failed) toast.error(`${pluralize(failed, "deletion")} failed`);
+    else toast.success(`Deleted ${pluralize(n, "configuration")}`);
     loadConfigs();
   }
 
