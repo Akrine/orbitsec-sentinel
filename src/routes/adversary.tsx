@@ -223,7 +223,7 @@ function Adversary() {
             title="Live Iteration Feed"
             action={
               result ? (
-                <span className="text-[10px] font-mono text-muted-foreground">{result.iterations_run} iterations</span>
+                <span className="text-[10px] font-mono text-muted-foreground">{pluralize(result.iterations_run, "iteration")}</span>
               ) : null
             }
           >
