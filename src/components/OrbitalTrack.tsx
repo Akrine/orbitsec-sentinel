@@ -236,11 +236,11 @@ export function OrbitalTrack({
       </div>
 
       <div className="p-4">
-        <div ref={containerRef} className="w-full relative">
+        <div ref={containerRef} className="w-full relative flex justify-center">
           {loading && (
             <div
               className="w-full flex items-center justify-center text-[11px] font-mono tracking-[0.18em] text-muted-foreground"
-              style={{ height }}
+              style={{ height: renderHeight }}
             >
               ACQUIRING ORBITAL TRACK…
             </div>
@@ -248,16 +248,16 @@ export function OrbitalTrack({
           {error && !loading && (
             <div
               className="w-full flex items-center justify-center text-[11px] font-mono tracking-[0.18em] text-critical"
-              style={{ height }}
+              style={{ height: renderHeight }}
             >
               ORBITAL DATA UNAVAILABLE
             </div>
           )}
           {!loading && !error && (
             <svg
-              width={width}
-              height={height}
-              viewBox={`0 0 ${width} ${height}`}
+              width={renderWidth}
+              height={renderHeight}
+              viewBox={`0 0 ${renderWidth} ${renderHeight}`}
               className="block bg-[oklch(0.18_0.02_240/0.4)] border border-border rounded-md"
             >
               {/* graticule */}
