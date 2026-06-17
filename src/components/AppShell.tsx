@@ -114,11 +114,10 @@ export function AppShell({ children, title, subtitle, actions }: {
           {!collapsed ? (
             <div className="flex items-center gap-2.5">
               <div className="h-8 w-8 rounded-md bg-gradient-to-br from-primary/30 to-accent/30 border border-border flex items-center justify-center text-xs font-semibold font-mono">
-                MR
+                {userInitials}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium truncate">Maj. M. Reyes</div>
-                <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">SOC · L4 Clearance</div>
+                <div className="text-xs font-medium truncate">{username}</div>
               </div>
               <button
                 onClick={() => { logout(); navigate({ to: "/login" }); }}
@@ -129,7 +128,7 @@ export function AppShell({ children, title, subtitle, actions }: {
             </div>
           ) : (
             <div className="h-8 w-8 mx-auto rounded-md bg-gradient-to-br from-primary/30 to-accent/30 border border-border flex items-center justify-center text-xs font-semibold font-mono">
-              MR
+              {userInitials}
             </div>
           )}
         </div>
