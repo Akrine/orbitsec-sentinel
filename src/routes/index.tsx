@@ -78,9 +78,10 @@ function Dashboard() {
   const [reports, setReports] = useState<Report[] | null>(null);
   const [configCount, setConfigCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [now, setNow] = useState<Date>(() => new Date());
+  const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
+    setNow(new Date());
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
