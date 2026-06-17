@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppShell, Panel } from "@/components/AppShell";
 import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
-import { apiFetch, logout } from "@/lib/api";
+import { apiFetch, logout, pluralize } from "@/lib/api";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
