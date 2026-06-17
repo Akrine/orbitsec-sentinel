@@ -37,6 +37,27 @@ export function AppShell({ children, title, subtitle, actions }: {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
+  const [username, setUsername] = useState("Authenticated");
+  const [health, setHealth] = useState<"unknown" | "online" | "offline">("unknown");
+
+  useEffect(() => {
+    setUsername(decodeUsername());
+    const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:8001";
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const r = await fetch(`${base}/health`);
+        if (!cancelled) setHealth(r.ok ? "online" : "offline");
+      } catch {
+        if (!cancelled) setHealth("offline");
+      }
+    };
+    check();
+    const id = setInterval(check, 30000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  const userInitials = username.slice(0, 2).toUpperCase();
 
   return (
     <div className="dark min-h-screen flex bg-background text-foreground">
