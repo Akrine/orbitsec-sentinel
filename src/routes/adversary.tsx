@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { AppShell, Panel } from "@/components/AppShell";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, pluralize } from "@/lib/api";
 import { useActiveSatellite } from "@/lib/activeSatellite";
 
 export const Route = createFileRoute("/adversary")({

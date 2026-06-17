@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, pluralize } from "@/lib/api";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/reports")({
