@@ -327,13 +327,6 @@ export function ConstellationNetwork({
               <line x1={675} y1={0} x2={675} y2={470} />
             </g>
 
-            {/* Header */}
-            <text x={20} y={28} fontSize={13} fontWeight={700} letterSpacing={2} fill={COLORS.cyanLight}>
-              {result ? "CONSTELLATION — CASCADE PROPAGATION" : "CONSTELLATION — FLEET TOPOLOGY"}
-            </text>
-            <text x={W - 20} y={28} textAnchor="end" fontSize={11} letterSpacing={1.5} fill={COLORS.muted}>
-              {result ? "POST-ATTACK" : `${roster.length} ASSETS · STANDBY`}
-            </text>
 
             {/* Hub links */}
             {positions.map((p, i) => {
