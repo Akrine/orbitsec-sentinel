@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
-import { ConstellationSchematic } from "@/components/ConstellationSchematic";
+import { ConstellationNetwork } from "@/components/ConstellationNetwork";
 import { apiFetch, getToken, pluralize } from "@/lib/api";
 
 export const Route = createFileRoute("/constellation")({
@@ -329,15 +329,18 @@ function Constellation() {
 
         {/* CENTER: Real constellation map */}
         <div className="xl:col-span-6">
-          <ConstellationSchematic
+          <ConstellationNetwork
             roster={sats.map((s) => ({
               id: s.id,
               name: s.name,
               norad_id: s.config?.norad_id,
               orbit_type: s.config?.orbit_type,
+              altitude_km: s.config?.altitude_km,
               asset_value_usd: s.config?.financial?.asset_value_usd,
             }))}
             result={result}
+            sharedStations={shared}
+            totalStations={gs}
           />
         </div>
 
