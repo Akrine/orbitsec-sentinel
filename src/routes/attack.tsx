@@ -611,6 +611,9 @@ function Attack() {
                     </div>
                   )}
 
+                  {/* 7b. Cascade dependency graph */}
+                  {r.subsystem_impacts && <CascadeGraph result={r} />}
+
                   {/* 8. Recovery timeline */}
                   {r.engine && Array.isArray(r.recovery_timeline) && r.recovery_timeline.filter((p: any) => p?.status === "required").length > 0 && (() => {
                     const phases = (r.recovery_timeline as any[]).filter((p) => p?.status === "required");
