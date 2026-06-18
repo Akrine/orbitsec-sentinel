@@ -37,44 +37,159 @@ type Props = {
   error?: string | null;
 };
 
-// Lay nodes out in a gentle arc across the canvas, spaced by count.
-function layout(n: number, w: number, h: number, topPad: number, bottomPad: number) {
-  const positions: { x: number; y: number }[] = [];
-  if (n <= 0) return positions;
-  const leftPad = 90;
-  const rightPad = 90;
-  const usable = w - leftPad - rightPad;
-  const cy = topPad + (h - topPad - bottomPad) / 2 - 30;
-  const arcAmp = Math.min(60, 14 + n * 4);
-  for (let i = 0; i < n; i++) {
-    const t = n === 1 ? 0.5 : i / (n - 1);
-    const x = leftPad + usable * t;
-    // gentle arc: high at edges, low (up) in middle — alternating slight stagger
-    const arc = Math.sin(t * Math.PI) * -arcAmp;
-    const stagger = (i % 2 === 0 ? -1 : 1) * 10;
-    positions.push({ x, y: cy + arc + stagger });
+const W = 900;
+const H = 470;
+const LEFT = 160;
+const RIGHT = 740;
+const SINGLE_ROW_Y = 135;
+const ROW_TOP_Y = 120;
+const ROW_BOT_Y = 300;
+const HUB_X = 450;
+const HUB_Y = 398;
+const LINK_Y = 155; // link entry just under glyph
+const HUB_LINK_Y = 374; // top of hub
+
+function layoutPositions(n: number): { x: number; y: number; row: 0 | 1 }[] {
+  if (n <= 0) return [];
+  if (n === 1) return [{ x: 450, y: SINGLE_ROW_Y, row: 0 }];
+  if (n <= 6) {
+    const pos = [];
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1);
+      pos.push({ x: LEFT + (RIGHT - LEFT) * t, y: SINGLE_ROW_Y, row: 0 as const });
+    }
+    return pos;
   }
-  return positions;
+  // two rows
+  const topCount = Math.ceil(n / 2);
+  const botCount = n - topCount;
+  const pos: { x: number; y: number; row: 0 | 1 }[] = [];
+  for (let i = 0; i < topCount; i++) {
+    const t = topCount === 1 ? 0.5 : i / (topCount - 1);
+    pos.push({ x: LEFT + (RIGHT - LEFT) * t, y: ROW_TOP_Y, row: 0 });
+  }
+  for (let i = 0; i < botCount; i++) {
+    const t = botCount === 1 ? 0.5 : i / (botCount - 1);
+    pos.push({ x: LEFT + (RIGHT - LEFT) * t, y: ROW_BOT_Y, row: 1 });
+  }
+  return pos;
 }
 
-function topSubsystem(impacts?: SubsystemImpact): string | null {
+function worstSubsystem(impacts?: SubsystemImpact): { name: string; val: number } | null {
   if (!impacts) return null;
   const entries = Object.entries(impacts);
   if (!entries.length) return null;
   entries.sort((a, b) => b[1] - a[1]);
-  const [name, val] = entries[0];
-  return `${name} ${Math.round(val)}%`;
+  return { name: entries[0][0], val: entries[0][1] };
 }
 
-function damageRgba(deg: number, alpha = 1): string {
-  // muted red intensity; neutral when low
-  const d = Math.max(0, Math.min(100, deg)) / 100;
-  if (d < 0.05) return `rgba(120, 140, 150, ${alpha * 0.55})`;
-  // interpolate from muted slate -> muted red
-  const r = Math.round(90 + d * 130);
-  const g = Math.round(95 - d * 55);
-  const b = Math.round(105 - d * 65);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+function parseSharedFromDesc(desc?: string): string | null {
+  if (!desc) return null;
+  const m = desc.match(/(\d+)\s*\/\s*(\d+)/);
+  if (!m) return null;
+  return `${m[1]}/${m[2]}`;
+}
+
+type NodeState = "nominal" | "entry" | "cascade";
+const COLORS = {
+  bg: "#0a0e14",
+  grid: "#1a2430",
+  muted: "#5a6a7a",
+  dim: "#3a4a5a",
+  fg: "#e0e8f0",
+  cyan: "#2bd4d4",
+  cyanLight: "#4ae0e0",
+  green: "#3fae5f",
+  amber: "#e0a045",
+  amberLight: "#ffb84d",
+  red: "#e0555a",
+  redLight: "#ff6b6b",
+  redPulse: "#ff8888",
+  panelStrokeNom: "#2bd4d4",
+  panelFillNom: "#14202e",
+  bodyStrokeNom: "#4ae0e0",
+  bodyFillNom: "#1c2b3a",
+  panelStrokeRed: "#e0555a",
+  panelFillRed: "#2a1414",
+  bodyStrokeRed: "#ff6b6b",
+  bodyFillRed: "#3a1a1a",
+  panelStrokeAmb: "#e0a045",
+  panelFillAmb: "#241c10",
+  bodyStrokeAmb: "#ffb84d",
+  bodyFillAmb: "#2a2010",
+};
+
+function colorsFor(state: NodeState) {
+  if (state === "entry")
+    return {
+      panelFill: COLORS.panelFillRed,
+      panelStroke: COLORS.panelStrokeRed,
+      bodyFill: COLORS.bodyFillRed,
+      bodyStroke: COLORS.bodyStrokeRed,
+      windowStroke: COLORS.redLight,
+      status: COLORS.red,
+    };
+  if (state === "cascade")
+    return {
+      panelFill: COLORS.panelFillAmb,
+      panelStroke: COLORS.panelStrokeAmb,
+      bodyFill: COLORS.bodyFillAmb,
+      bodyStroke: COLORS.bodyStrokeAmb,
+      windowStroke: COLORS.amberLight,
+      status: COLORS.amber,
+    };
+  return {
+    panelFill: COLORS.panelFillNom,
+    panelStroke: COLORS.panelStrokeNom,
+    bodyFill: COLORS.bodyFillNom,
+    bodyStroke: COLORS.bodyStrokeNom,
+    windowStroke: COLORS.cyan,
+    status: COLORS.green,
+  };
+}
+
+function SatelliteGlyph({
+  x,
+  y,
+  state,
+  bobDur,
+}: {
+  x: number;
+  y: number;
+  state: NodeState;
+  bobDur: number;
+}) {
+  const c = colorsFor(state);
+  return (
+    <g>
+      <animateTransform
+        attributeName="transform"
+        type="translate"
+        values="0 0; 0 -5; 0 0"
+        dur={`${bobDur}s`}
+        repeatCount="indefinite"
+      />
+      <g transform={`translate(${x},${y}) scale(0.62)`}>
+        {/* Left panel */}
+        <rect x={-78} y={-16} width={38} height={32} rx={2} fill={c.panelFill} stroke={c.panelStroke} strokeWidth={1} />
+        <line x1={-65} y1={-16} x2={-65} y2={16} stroke={c.panelStroke} strokeOpacity={0.35} strokeWidth={0.8} />
+        <line x1={-53} y1={-16} x2={-53} y2={16} stroke={c.panelStroke} strokeOpacity={0.35} strokeWidth={0.8} />
+        {/* Right panel */}
+        <rect x={40} y={-16} width={38} height={32} rx={2} fill={c.panelFill} stroke={c.panelStroke} strokeWidth={1} />
+        <line x1={53} y1={-16} x2={53} y2={16} stroke={c.panelStroke} strokeOpacity={0.35} strokeWidth={0.8} />
+        <line x1={65} y1={-16} x2={65} y2={16} stroke={c.panelStroke} strokeOpacity={0.35} strokeWidth={0.8} />
+        {/* Connectors */}
+        <line x1={-40} y1={0} x2={-18} y2={0} stroke={COLORS.dim} strokeWidth={2} />
+        <line x1={18} y1={0} x2={40} y2={0} stroke={COLORS.dim} strokeWidth={2} />
+        {/* Body */}
+        <rect x={-18} y={-20} width={36} height={40} rx={3} fill={c.bodyFill} stroke={c.bodyStroke} strokeWidth={1.5} />
+        <rect x={-12} y={-13} width={24} height={9} rx={1.5} fill={COLORS.bg} stroke={c.windowStroke} strokeWidth={0.8} />
+        {/* Antenna */}
+        <line x1={0} y1={-20} x2={0} y2={-30} stroke={c.bodyStroke} strokeWidth={1.2} />
+        <ellipse cx={0} cy={-33} rx={8} ry={4} fill="none" stroke={c.bodyStroke} strokeWidth={1.2} />
+      </g>
+    </g>
+  );
 }
 
 export function ConstellationNetwork({
@@ -85,19 +200,15 @@ export function ConstellationNetwork({
   loading = false,
   error = null,
 }: Props) {
-  const W = 900;
-  const H = 500;
+  const positions = useMemo(() => layoutPositions(roster.length), [roster.length]);
 
-  const positions = useMemo(() => layout(roster.length, W, H, 60, 140), [roster.length]);
-
-  // Build result lookup
   const resByName = useMemo(() => {
     const m = new Map<string, SatelliteResult>();
     (result?.satellite_results ?? []).forEach((r) => m.set(r.satellite_name, r));
     return m;
   }, [result]);
 
-  // Primary target = highest asset value (cascade source)
+  // Primary target = cascade source / highest asset value
   const primaryIdx = useMemo(() => {
     if (!roster.length) return -1;
     let best = 0;
@@ -111,9 +222,6 @@ export function ConstellationNetwork({
     });
     return best;
   }, [roster]);
-
-  const hubX = W / 2;
-  const hubY = H - 95;
 
   const cascadeCount = useMemo(
     () => (result?.satellite_results ?? []).filter((r) => r.cascade_applied).length,
@@ -160,409 +268,251 @@ export function ConstellationNetwork({
 
   return (
     <Panel
-      title={result ? "CONSTELLATION — CASCADE PROPAGATION" : `CONSTELLATION — ${roster.length} ASSETS`}
+      title={result ? "CONSTELLATION — CASCADE PROPAGATION" : "CONSTELLATION — FLEET TOPOLOGY"}
       action={
         <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-          {result ? "POST-ATTACK" : "STANDBY"}
+          {result ? "POST-ATTACK" : `${roster.length} ASSETS · STANDBY`}
         </span>
       }
     >
-      <style>{`
-        @keyframes cn-bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
-        @keyframes cn-bob2 { 0%,100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
-        @keyframes cn-panel-spin { 0% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } 100% { transform: rotate(-3deg); } }
-        @keyframes cn-idle-dash { to { stroke-dashoffset: -28; } }
-        @keyframes cn-pulse-halo { 0%,100% { opacity: 0.35; r: 46; } 50% { opacity: 0.7; r: 54; } }
-        @keyframes cn-cascade-dash { to { stroke-dashoffset: -60; } }
-        @keyframes cn-cascade-fade { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0.9; } }
-        @keyframes cn-spark { 0% { opacity: 0; } 25% { opacity: 1; } 100% { opacity: 0; } }
-        .cn-node-bob { animation: cn-bob 6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-        .cn-node-bob.alt { animation-name: cn-bob2; animation-duration: 7s; }
-        .cn-panel-sway { animation: cn-panel-spin 8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-        .cn-idle-link { stroke-dasharray: 4 6; animation: cn-idle-dash 6s linear infinite; }
-        .cn-halo { animation: cn-pulse-halo 2.4s ease-in-out infinite; }
-      `}</style>
-
       <div className="p-3">
-        <div className="relative w-full panel-2 rounded" style={{ height: 440 }}>
-          <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" width="100%" height="100%">
+        {/* Info readout above the SVG */}
+        {result && (
+          <div className="mb-2 grid grid-cols-3 gap-2">
+            <div className="panel-2 px-3 py-1.5">
+              <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Primary</div>
+              <div className="text-xs font-mono font-semibold truncate">{primary?.name ?? "—"}</div>
+            </div>
+            <div className="panel-2 px-3 py-1.5">
+              <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">
+                Aggregate Degradation
+              </div>
+              <div className="text-xs font-mono font-semibold">
+                {result.aggregate_degradation_percent.toFixed(1)}%
+              </div>
+            </div>
+            <div className="panel-2 px-3 py-1.5">
+              <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Cascade Affected</div>
+              <div className="text-xs font-mono font-semibold">
+                {cascadeCount} / {roster.length}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="relative w-full rounded overflow-hidden" style={{ height: 440, background: COLORS.bg }}>
+          <svg
+            viewBox={`0 0 ${W} ${H}`}
+            preserveAspectRatio="xMidYMid meet"
+            width="100%"
+            height="100%"
+            fontFamily="ui-monospace, monospace"
+          >
             <defs>
-              <radialGradient id="cn-hub-grad" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.35" />
-                <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
-              </radialGradient>
-              <linearGradient id="cn-cascade-grad" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.2" />
-                <stop offset="50%" stopColor="hsl(var(--primary))" stopOpacity="1" />
-                <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.2" />
-              </linearGradient>
+              <marker id="cn-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <polygon points="0,0 10,5 0,10" fill={COLORS.redLight} />
+              </marker>
             </defs>
 
-            {/* Subtle grid backdrop */}
-            <g opacity="0.08" stroke="hsl(var(--primary))" strokeWidth="1">
-              {Array.from({ length: 9 }, (_, i) => (
-                <line key={`v${i}`} x1={(i + 1) * (W / 10)} y1={20} x2={(i + 1) * (W / 10)} y2={H - 20} />
-              ))}
-              {Array.from({ length: 5 }, (_, i) => (
-                <line key={`h${i}`} x1={20} y1={(i + 1) * (H / 6)} x2={W - 20} y2={(i + 1) * (H / 6)} />
-              ))}
+            {/* Background */}
+            <rect width={W} height={H} fill={COLORS.bg} />
+
+            {/* Grid */}
+            <g stroke={COLORS.grid} strokeWidth={1} opacity={0.5}>
+              <line x1={0} y1={120} x2={900} y2={120} />
+              <line x1={0} y1={240} x2={900} y2={240} />
+              <line x1={0} y1={360} x2={900} y2={360} />
+              <line x1={225} y1={0} x2={225} y2={470} />
+              <line x1={450} y1={0} x2={450} y2={470} />
+              <line x1={675} y1={0} x2={675} y2={470} />
             </g>
 
-            {/* Hub */}
-            <g>
-              <circle cx={hubX} cy={hubY} r={60} fill="url(#cn-hub-grad)" />
-              <circle
-                cx={hubX}
-                cy={hubY}
-                r={22}
-                fill="hsl(var(--background))"
-                stroke="hsl(var(--primary))"
-                strokeOpacity="0.7"
-                strokeWidth="1.2"
-              />
-              <circle cx={hubX} cy={hubY} r={6} fill="hsl(var(--primary))" opacity="0.85" />
-              <text
-                x={hubX}
-                y={hubY + 42}
-                textAnchor="middle"
-                fontFamily="ui-monospace, monospace"
-                fontSize="9"
-                letterSpacing="2"
-                fill="hsl(var(--muted-foreground))"
-              >
-                SHARED GROUND SEGMENT
-              </text>
-              <text
-                x={hubX}
-                y={hubY + 55}
-                textAnchor="middle"
-                fontFamily="ui-monospace, monospace"
-                fontSize="9"
-                letterSpacing="1.5"
-                fill="hsl(var(--primary))"
-                opacity="0.85"
-              >
-                {sharedStations}/{totalStations} STATIONS SHARED
-              </text>
-            </g>
+            {/* Header */}
+            <text x={20} y={28} fontSize={13} fontWeight={700} letterSpacing={2} fill={COLORS.cyanLight}>
+              {result ? "CONSTELLATION — CASCADE PROPAGATION" : "CONSTELLATION — FLEET TOPOLOGY"}
+            </text>
+            <text x={W - 20} y={28} textAnchor="end" fontSize={11} letterSpacing={1.5} fill={COLORS.muted}>
+              {result ? "POST-ATTACK" : `${roster.length} ASSETS · STANDBY`}
+            </text>
 
-            {/* Hub links (idle) */}
-            {positions.map((p, i) => (
-              <line
-                key={`hub-${i}`}
-                x1={p.x}
-                y1={p.y + 8}
-                x2={hubX}
-                y2={hubY}
-                stroke="hsl(var(--primary))"
-                strokeOpacity="0.22"
-                strokeWidth="1"
-                className="cn-idle-link"
-              />
-            ))}
-
-            {/* Inter-sat thin idle links (chain neighbors) */}
+            {/* Hub links */}
             {positions.map((p, i) => {
-              if (i === positions.length - 1) return null;
-              const n = positions[i + 1];
+              const x1 = HUB_X;
+              const y1 = HUB_LINK_Y;
+              const x2 = p.x;
+              const y2 = p.row === 0 ? LINK_Y : p.y + 60;
               return (
                 <line
-                  key={`chain-${i}`}
-                  x1={p.x}
-                  y1={p.y}
-                  x2={n.x}
-                  y2={n.y}
-                  stroke="hsl(var(--primary))"
-                  strokeOpacity="0.18"
-                  strokeWidth="1"
-                  className="cn-idle-link"
+                  key={`link-${i}`}
+                  x1={x1}
+                  y1={y1}
+                  x2={x2}
+                  y2={y2}
+                  stroke={COLORS.cyan}
+                  strokeOpacity={0.3}
+                  strokeDasharray="4 4"
+                  strokeWidth={1}
                 />
               );
             })}
 
-            {/* Cascade arcs (post-attack) from primary target to affected nodes */}
+            {/* Flowing dots along links */}
+            {positions.map((p, i) => {
+              const x2 = p.x;
+              const y2 = p.row === 0 ? LINK_Y : p.y + 60;
+              const dur = 3 + ((i * 0.13) % 0.8);
+              return (
+                <circle key={`flow-${i}`} r={2.5} fill={COLORS.cyan} opacity={0.7}>
+                  <animateMotion path={`M ${HUB_X} ${HUB_LINK_Y} L ${x2} ${y2}`} dur={`${dur}s`} repeatCount="indefinite" />
+                </circle>
+              );
+            })}
+
+            {/* HUB */}
+            <g>
+              <circle cx={HUB_X} cy={HUB_Y} r={26} fill="#0d1620" stroke={COLORS.dim} strokeWidth={1.2} />
+              {/* dish glyph */}
+              <g stroke="#7a8a9a" strokeWidth={1.4} fill="none">
+                <path d={`M ${HUB_X - 11} ${HUB_Y - 2} A 11 11 0 0 1 ${HUB_X + 11} ${HUB_Y - 2}`} />
+                <line x1={HUB_X} y1={HUB_Y - 2} x2={HUB_X} y2={HUB_Y + 8} />
+                <circle cx={HUB_X} cy={HUB_Y + 10} r={2} fill="#7a8a9a" />
+              </g>
+              <text x={HUB_X} y={HUB_Y + 46} textAnchor="middle" fontSize={11} letterSpacing={2} fill={COLORS.muted}>
+                SHARED GROUND SEGMENT
+              </text>
+              <text x={HUB_X} y={HUB_Y + 61} textAnchor="middle" fontSize={10} letterSpacing={1.5} fill={COLORS.dim}>
+                {sharedStations}/{totalStations} STATIONS SHARED
+              </text>
+            </g>
+
+            {/* Cascade arcs */}
             {result && primaryPos &&
               roster.map((s, i) => {
                 if (i === primaryIdx) return null;
                 const r = resByName.get(s.name);
                 if (!r || !r.cascade_applied) return null;
                 const p = positions[i];
-                const mx = (primaryPos.x + p.x) / 2;
-                const my = Math.min(primaryPos.y, p.y) - 60;
-                const delay = (i % 8) * 0.25;
+                const x1 = primaryPos.x;
+                const y1 = primaryPos.y;
+                const x2 = p.x;
+                const y2 = p.y;
+                const mx = (x1 + x2) / 2;
+                const my = Math.min(y1, y2) - 55;
+                const path = `M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}`;
+                const sharedLbl =
+                  parseSharedFromDesc(r.cascade_description) ?? `${sharedStations}/${totalStations}`;
                 return (
-                  <g key={`cas-${i}`} style={{ animation: `cn-cascade-fade 1.2s ease-out ${delay}s both` }}>
+                  <g key={`arc-${i}`}>
                     <path
-                      d={`M ${primaryPos.x} ${primaryPos.y} Q ${mx} ${my} ${p.x} ${p.y}`}
+                      d={path}
                       fill="none"
-                      stroke="hsl(var(--primary))"
-                      strokeOpacity="0.85"
-                      strokeWidth="1.6"
-                      strokeDasharray="10 14"
-                      style={{ animation: `cn-cascade-dash 1.4s linear infinite` }}
+                      stroke={COLORS.redLight}
+                      strokeWidth={2}
+                      strokeDasharray="6 5"
+                      markerEnd="url(#cn-arrow)"
+                      opacity={0.9}
                     />
-                    <path
-                      d={`M ${primaryPos.x} ${primaryPos.y} Q ${mx} ${my} ${p.x} ${p.y}`}
-                      fill="none"
-                      stroke="hsl(var(--primary))"
-                      strokeOpacity="0.18"
-                      strokeWidth="4"
-                    />
+                    <circle r={3.5} fill={COLORS.redPulse}>
+                      <animateMotion path={path} dur="1.6s" repeatCount="indefinite" />
+                      <animate attributeName="opacity" values="0;1;1;0" dur="1.6s" repeatCount="indefinite" />
+                    </circle>
+                    <text
+                      x={mx}
+                      y={my + 4}
+                      textAnchor="middle"
+                      fontSize={10}
+                      fill={COLORS.redPulse}
+                      letterSpacing={0.5}
+                    >
+                      via {sharedLbl} shared stations
+                    </text>
                   </g>
                 );
               })}
 
-            {/* Nodes */}
+            {/* Satellites */}
             {roster.map((s, i) => {
               const p = positions[i];
               const r = resByName.get(s.name);
               const deg = r?.mission_degradation_percent ?? 0;
-              const isPrimary = i === primaryIdx;
+              const isPrimary = result ? i === primaryIdx : false;
               const isAffected = !!r?.cascade_applied;
-              const bodyFill = result ? damageRgba(deg, 0.95) : "rgba(120,140,150,0.18)";
-              const bodyStroke = result
-                ? deg > 5
-                  ? "hsl(var(--critical, 0 70% 55%))"
-                  : "hsl(var(--primary))"
-                : "hsl(var(--primary))";
-              const status = r ? topSubsystem(r.subsystem_impacts) : null;
-              const altDisplay =
-                s.altitude_km != null ? `${s.orbit_type ?? "ORB"} · ${Math.round(s.altitude_km)} km` : (s.orbit_type ?? "—");
+              const state: NodeState = isPrimary ? "entry" : isAffected ? "cascade" : "nominal";
+              const c = colorsFor(state);
+              const worst = worstSubsystem(r?.subsystem_impacts);
+              const bobDur = 5 + ((i * 0.37) % 1.5);
 
-              const bobClass = i % 2 === 0 ? "cn-node-bob" : "cn-node-bob alt";
+              // Label Ys: relative to glyph row
+              const nameY = p.y + 78;
+              const subY = p.y + 95;
+              const statusY = p.y + 111;
+
+              const altDisplay =
+                s.altitude_km != null
+                  ? `${(s.orbit_type ?? "ORB").toUpperCase()} · ${Math.round(s.altitude_km)} km`
+                  : (s.orbit_type ?? "—").toUpperCase();
+
+              let statusText = "";
+              if (state === "nominal") statusText = result ? `NOMINAL · ${deg.toFixed(0)}%` : "NOMINAL · STANDBY";
+              else if (state === "entry") statusText = `ENTRY · DEG ${deg.toFixed(0)}%`;
+              else
+                statusText = worst
+                  ? `${worst.name.toUpperCase()} ${Math.round(worst.val)}% · DEG ${deg.toFixed(0)}%`
+                  : `CASCADE · DEG ${deg.toFixed(0)}%`;
 
               return (
                 <g key={s.id}>
                   {/* Primary halo */}
-                  {result && isPrimary && (
-                    <circle
-                      cx={p.x}
-                      cy={p.y}
-                      r={46}
-                      fill="none"
-                      stroke="hsl(var(--primary))"
-                      strokeOpacity="0.55"
-                      strokeWidth="1.4"
-                      className="cn-halo"
-                    />
-                  )}
-
-                  {/* Satellite glyph (group bobs as a whole) */}
-                  <g className={bobClass} style={{ animationDelay: `${(i * 0.4) % 3}s` }}>
-                    {/* Solar panel left */}
-                    <g className="cn-panel-sway" style={{ animationDelay: `${i * 0.3}s` }}>
-                      <rect
-                        x={p.x - 42}
-                        y={p.y - 9}
-                        width={24}
-                        height={18}
-                        rx={1.5}
-                        fill="hsl(var(--background))"
-                        stroke="hsl(var(--primary))"
-                        strokeOpacity="0.7"
-                        strokeWidth="1"
-                      />
-                      {[0, 1, 2].map((k) => (
-                        <line
-                          key={k}
-                          x1={p.x - 42 + (k + 1) * 6}
-                          y1={p.y - 9}
-                          x2={p.x - 42 + (k + 1) * 6}
-                          y2={p.y + 9}
-                          stroke="hsl(var(--primary))"
-                          strokeOpacity="0.45"
-                          strokeWidth="0.7"
-                        />
-                      ))}
-                    </g>
-                    {/* Solar panel right */}
-                    <g className="cn-panel-sway" style={{ animationDelay: `${i * 0.3 + 1}s` }}>
-                      <rect
-                        x={p.x + 18}
-                        y={p.y - 9}
-                        width={24}
-                        height={18}
-                        rx={1.5}
-                        fill="hsl(var(--background))"
-                        stroke="hsl(var(--primary))"
-                        strokeOpacity="0.7"
-                        strokeWidth="1"
-                      />
-                      {[0, 1, 2].map((k) => (
-                        <line
-                          key={k}
-                          x1={p.x + 18 + (k + 1) * 6}
-                          y1={p.y - 9}
-                          x2={p.x + 18 + (k + 1) * 6}
-                          y2={p.y + 9}
-                          stroke="hsl(var(--primary))"
-                          strokeOpacity="0.45"
-                          strokeWidth="0.7"
-                        />
-                      ))}
-                    </g>
-                    {/* Body */}
-                    <rect
-                      x={p.x - 18}
-                      y={p.y - 14}
-                      width={36}
-                      height={28}
-                      rx={4}
-                      fill={bodyFill}
-                      stroke={bodyStroke}
-                      strokeWidth="1.4"
-                    />
-                    {/* Antenna */}
-                    <line
-                      x1={p.x}
-                      y1={p.y - 14}
-                      x2={p.x}
-                      y2={p.y - 24}
-                      stroke="hsl(var(--primary))"
-                      strokeOpacity="0.8"
-                      strokeWidth="1"
-                    />
-                    <circle cx={p.x} cy={p.y - 25} r={1.8} fill="hsl(var(--primary))" />
-                  </g>
-
-                  {/* TARGET tag */}
-                  {result && isPrimary && (
-                    <g>
-                      <rect
-                        x={p.x - 28}
-                        y={p.y - 48}
-                        width={56}
-                        height={14}
-                        rx={2}
-                        fill="hsl(var(--background))"
-                        stroke="hsl(var(--primary))"
-                        strokeOpacity="0.8"
-                      />
+                  {isPrimary && (
+                    <>
+                      <circle
+                        cx={p.x}
+                        cy={p.y}
+                        r={60}
+                        fill="none"
+                        stroke={COLORS.cyanLight}
+                        strokeDasharray="3 4"
+                        strokeWidth={1}
+                      >
+                        <animate attributeName="opacity" values="0.4;0.9;0.4" dur="2s" repeatCount="indefinite" />
+                      </circle>
                       <text
                         x={p.x}
-                        y={p.y - 38}
+                        y={p.y - 73}
                         textAnchor="middle"
-                        fontFamily="ui-monospace, monospace"
-                        fontSize="9"
-                        letterSpacing="2"
-                        fill="hsl(var(--primary))"
+                        fontSize={10}
+                        letterSpacing={2}
+                        fill={COLORS.cyanLight}
                       >
-                        ENTRY · TARGET
+                        ENTRY POINT
                       </text>
-                    </g>
+                    </>
                   )}
 
-                  {/* Label below */}
+                  <SatelliteGlyph x={p.x} y={p.y} state={state} bobDur={bobDur} />
+
+                  {/* Labels */}
                   <text
                     x={p.x}
-                    y={p.y + 38}
+                    y={nameY}
                     textAnchor="middle"
-                    fontFamily="ui-monospace, monospace"
-                    fontSize="11"
+                    fontSize={14}
                     fontWeight={700}
-                    fill="hsl(var(--foreground))"
+                    fill={COLORS.fg}
                   >
                     {s.name.length > 22 ? s.name.slice(0, 21) + "…" : s.name}
                   </text>
-                  <text
-                    x={p.x}
-                    y={p.y + 52}
-                    textAnchor="middle"
-                    fontFamily="ui-monospace, monospace"
-                    fontSize="9"
-                    letterSpacing="1.5"
-                    fill="hsl(var(--muted-foreground))"
-                  >
-                    {altDisplay.toUpperCase()}
+                  <text x={p.x} y={subY} textAnchor="middle" fontSize={11} fill={COLORS.muted}>
+                    {altDisplay}
                   </text>
-
-                  {/* Degradation readout (post-attack) */}
-                  {result && (
-                    <>
-                      <text
-                        x={p.x}
-                        y={p.y + 66}
-                        textAnchor="middle"
-                        fontFamily="ui-monospace, monospace"
-                        fontSize="10"
-                        fontWeight={700}
-                        fill={deg >= 50 ? "hsl(var(--critical, 0 70% 55%))" : deg >= 20 ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))"}
-                      >
-                        DEG {deg.toFixed(0)}%
-                      </text>
-                      {status && isAffected && (
-                        <text
-                          x={p.x}
-                          y={p.y + 79}
-                          textAnchor="middle"
-                          fontFamily="ui-monospace, monospace"
-                          fontSize="9"
-                          fill="hsl(var(--muted-foreground))"
-                        >
-                          {status.length > 28 ? status.slice(0, 27) + "…" : status}
-                        </text>
-                      )}
-                    </>
-                  )}
+                  <text x={p.x} y={statusY} textAnchor="middle" fontSize={11} fill={c.status} letterSpacing={0.5}>
+                    {statusText}
+                  </text>
                 </g>
               );
             })}
-
-            {/* Top-left header strip */}
-            <g>
-              <text
-                x={20}
-                y={28}
-                fontFamily="ui-monospace, monospace"
-                fontSize="10"
-                letterSpacing="2.5"
-                fill="hsl(var(--muted-foreground))"
-              >
-                {result ? "CASCADE PROPAGATION MAP" : "FLEET TOPOLOGY"}
-              </text>
-              <text
-                x={W - 20}
-                y={28}
-                textAnchor="end"
-                fontFamily="ui-monospace, monospace"
-                fontSize="10"
-                letterSpacing="2"
-                fill="hsl(var(--muted-foreground))"
-              >
-                {roster.length} ASSETS · {totalStations} GS
-              </text>
-            </g>
           </svg>
         </div>
-
-        {/* Summary strip */}
-        {result && (
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            <div className="panel-2 px-3 py-2">
-              <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Primary</div>
-              <div className="text-xs font-mono font-semibold truncate">
-                {primary?.name ?? "—"}
-              </div>
-              <div className="text-[10px] font-mono text-muted-foreground">
-                {primaryRes ? `${primaryRes.mission_degradation_percent.toFixed(1)}% degraded` : "—"}
-              </div>
-            </div>
-            <div className="panel-2 px-3 py-2">
-              <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Aggregate Degradation</div>
-              <div className="text-xs font-mono font-semibold">
-                {result.aggregate_degradation_percent.toFixed(1)}%
-              </div>
-              <div className="text-[10px] font-mono text-muted-foreground">weighted by value</div>
-            </div>
-            <div className="panel-2 px-3 py-2">
-              <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Cascade Affected</div>
-              <div className="text-xs font-mono font-semibold">
-                {cascadeCount} / {roster.length}
-              </div>
-              <div className="text-[10px] font-mono text-muted-foreground">propagated via shared infra</div>
-            </div>
-          </div>
-        )}
       </div>
     </Panel>
   );
