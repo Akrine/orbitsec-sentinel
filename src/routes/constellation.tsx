@@ -329,7 +329,7 @@ function Constellation() {
 
         {/* CENTER: Real constellation map */}
         <div className="xl:col-span-6">
-          <ConstellationGlobe
+          <ConstellationSchematic
             roster={sats.map((s) => ({
               id: s.id,
               name: s.name,
