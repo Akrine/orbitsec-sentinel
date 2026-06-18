@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
+import { ConstellationMap } from "@/components/ConstellationMap";
 import { apiFetch, getToken, pluralize } from "@/lib/api";
 
 export const Route = createFileRoute("/constellation")({
@@ -326,82 +327,19 @@ function Constellation() {
           </Panel>
         </div>
 
-        {/* CENTER: SVG Diagram (decorative) */}
-        <Panel className="xl:col-span-6" title="Constellation Topology" action={<span className="text-[10px] font-mono text-muted-foreground">{sats.length} ASSETS · {gs} GROUND STATIONS</span>}>
-          <div className="p-4">
-            <div className="relative panel-2 rounded-md overflow-hidden hud-grid" style={{ height: 440 }}>
-              <svg viewBox="0 0 800 440" className="w-full h-full">
-                <defs>
-                  <radialGradient id="halo2">
-                    <stop offset="0%" stopColor="oklch(0.65 0.24 22 / 0.5)" />
-                    <stop offset="100%" stopColor="oklch(0.65 0.24 22 / 0)" />
-                  </radialGradient>
-                </defs>
-
-                <ellipse cx="400" cy="440" rx="500" ry="80" fill="oklch(0.22 0.04 240)" stroke="oklch(0.36 0.02 240)" />
-                <ellipse cx="400" cy="440" rx="500" ry="80" fill="none" stroke="oklch(0.78 0.16 195 / 0.3)" />
-                <path d="M 40 180 Q 400 -10 760 180" stroke="oklch(0.36 0.02 240)" strokeWidth="1" fill="none" strokeDasharray="2 4" />
-
-                {(() => {
-                  const positions = [
-                    { x: 130, y: 110 }, { x: 320, y: 70 }, { x: 510, y: 80 }, { x: 680, y: 130 },
-                  ];
-                  const stations = [
-                    { x: 180, y: 340, name: "SVALBARD" },
-                    { x: 400, y: 340, name: "MCMURDO" },
-                    { x: 620, y: 340, name: "WALLOPS" },
-                  ];
-                  const display = sats.slice(0, 4);
-                  return (
-                    <>
-                      {display.map((s, i) => {
-                        const p = positions[i % positions.length];
-                        const g = stations[i % stations.length];
-                        return <line key={`l${s.id}`} x1={p.x} y1={p.y} x2={g.x} y2={g.y} stroke="oklch(0.36 0.02 240)" strokeWidth="1" />;
-                      })}
-
-                      <line x1={positions[0].x} y1={positions[0].y} x2={stations[0].x} y2={stations[0].y} stroke="oklch(0.65 0.24 22)" strokeWidth="1.5" strokeDasharray="4 4" className="flow-line" />
-                      <line x1={stations[0].x} y1={stations[0].y} x2={positions[1].x} y2={positions[1].y} stroke="oklch(0.65 0.24 22)" strokeWidth="1.5" strokeDasharray="4 4" className="flow-line" />
-                      <line x1={positions[1].x} y1={positions[1].y} x2={stations[1].x} y2={stations[1].y} stroke="oklch(0.65 0.24 22 / 0.7)" strokeWidth="1.5" strokeDasharray="4 4" className="flow-line" />
-                      <line x1={stations[1].x} y1={stations[1].y} x2={positions[2].x} y2={positions[2].y} stroke="oklch(0.74 0.18 50 / 0.8)" strokeWidth="1.5" strokeDasharray="4 4" className="flow-line" />
-                      <line x1={positions[2].x} y1={positions[2].y} x2={stations[2].x} y2={stations[2].y} stroke="oklch(0.74 0.18 50 / 0.6)" strokeWidth="1" strokeDasharray="3 3" />
-
-                      {display.map((s, i) => {
-                        const p = positions[i % positions.length];
-                        const sr = result?.satellite_results?.[i];
-                        const deg = sr?.mission_degradation_percent ?? 0;
-                        const breach = deg >= 50;
-                        const color = deg >= 70 ? "oklch(0.65 0.24 22)" : deg >= 40 ? "oklch(0.74 0.18 50)" : "oklch(0.78 0.16 195)";
-                        return (
-                          <g key={s.id}>
-                            {breach && <circle cx={p.x} cy={p.y} r="22" fill="url(#halo2)" className="pulse-dot" />}
-                            <circle cx={p.x} cy={p.y} r="7" fill={color} />
-                            <circle cx={p.x} cy={p.y} r="11" fill="none" stroke={color} strokeOpacity="0.5" />
-                            <text x={p.x} y={p.y - 18} textAnchor="middle" fontSize="10" className="font-mono" fill="oklch(0.92 0.005 240)">{s.name}</text>
-                            {sr && <text x={p.x} y={p.y + 24} textAnchor="middle" fontSize="9" className="font-mono" fill={color}>{deg.toFixed(1)}%</text>}
-                          </g>
-                        );
-                      })}
-
-                      {stations.map((g) => (
-                        <g key={g.name}>
-                          <path d={`M ${g.x - 10} ${g.y + 8} L ${g.x} ${g.y - 10} L ${g.x + 10} ${g.y + 8} Z`} fill="oklch(0.205 0.015 240)" stroke="oklch(0.78 0.16 195)" strokeWidth="1.2" />
-                          <text x={g.x} y={g.y + 26} textAnchor="middle" fontSize="9" className="font-mono" fill="oklch(0.66 0.018 240)">{g.name}</text>
-                        </g>
-                      ))}
-                    </>
-                  );
-                })()}
-              </svg>
-
-              <div className="absolute top-3 left-3 panel-2 px-2 py-1.5 text-[10px] font-mono space-y-1">
-                <div className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-critical pulse-dot" /> CASCADE PATH</div>
-                <div className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-primary" /> NOMINAL LINK</div>
-              </div>
-              <div className="absolute bottom-3 right-3 panel-2 px-2 py-1 text-[10px] font-mono text-muted-foreground">FRAME ECI · DECORATIVE</div>
-            </div>
-          </div>
-        </Panel>
+        {/* CENTER: Real constellation map */}
+        <div className="xl:col-span-6">
+          <ConstellationMap
+            roster={sats.map((s) => ({
+              id: s.id,
+              name: s.name,
+              norad_id: s.config?.norad_id,
+              orbit_type: s.config?.orbit_type,
+              asset_value_usd: s.config?.financial?.asset_value_usd,
+            }))}
+            result={result}
+          />
+        </div>
 
         {/* RIGHT: Attack Config */}
         <div className="xl:col-span-3 space-y-4">
