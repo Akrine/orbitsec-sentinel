@@ -471,9 +471,9 @@ export function ConstellationNetwork({
                       </circle>
                       <text
                         x={p.x}
-                        y={p.y - 73}
+                        y={p.y - 78}
                         textAnchor="middle"
-                        fontSize={10}
+                        fontSize={12}
                         letterSpacing={2}
                         fill={COLORS.cyanLight}
                       >
