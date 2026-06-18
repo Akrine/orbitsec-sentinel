@@ -32,14 +32,22 @@ export type ConstellationResult = {
 } | null;
 
 const EARTH_R = 1;
+const EARTH_KM = 6371;
 const CYAN = "#22d3ee";
 const NEUTRAL = "#7c8a99";
 
-// altitude_km -> world units above globe surface
+// altitude_km -> world-units distance from Earth center.
+// LEO (~700 km) ≈ 1.10, GEO (~35,786 km) ≈ 2.70. Log-compressed so both fit in frame
+// while making the LEO-vs-GEO regime visually unmistakable.
 function altToRadius(altKm: number): number {
-  const a = Math.max(100, altKm);
-  // log scale: LEO ~700km -> ~1.18; GEO ~35786 -> ~1.95
-  return EARTH_R + 0.25 * Math.log10(1 + a / 200);
+  const a = Math.max(120, altKm);
+  const LO_ALT = 700;
+  const HI_ALT = 35786;
+  const LO_R = 1.1;
+  const HI_R = 2.7;
+  const t = (Math.log10(a) - Math.log10(LO_ALT)) / (Math.log10(HI_ALT) - Math.log10(LO_ALT));
+  const r = LO_R + (HI_R - LO_R) * t;
+  return Math.min(3.0, Math.max(1.05, r));
 }
 
 function latLonAltToVec3(latDeg: number, lonDeg: number, r: number): THREE.Vector3 {
@@ -54,7 +62,6 @@ function latLonAltToVec3(latDeg: number, lonDeg: number, r: number): THREE.Vecto
 function damageColor(deg: number): THREE.Color {
   if (deg <= 0.5) return new THREE.Color(NEUTRAL);
   const t = Math.min(1, deg / 100);
-  // mix slate -> muted red
   const base = new THREE.Color(NEUTRAL);
   const red = new THREE.Color("#b94a4a");
   return base.clone().lerp(red, 0.3 + 0.7 * t);
@@ -64,20 +71,14 @@ function Graticule() {
   const lines = useMemo(() => {
     const segs: THREE.Vector3[][] = [];
     const r = EARTH_R * 1.001;
-    // parallels every 15°
     for (let lat = -75; lat <= 75; lat += 15) {
       const pts: THREE.Vector3[] = [];
-      for (let lon = -180; lon <= 180; lon += 5) {
-        pts.push(latLonAltToVec3(lat, lon, r));
-      }
+      for (let lon = -180; lon <= 180; lon += 5) pts.push(latLonAltToVec3(lat, lon, r));
       segs.push(pts);
     }
-    // meridians every 15°
     for (let lon = -180; lon < 180; lon += 15) {
       const pts: THREE.Vector3[] = [];
-      for (let lat = -90; lat <= 90; lat += 5) {
-        pts.push(latLonAltToVec3(lat, lon, r));
-      }
+      for (let lat = -90; lat <= 90; lat += 5) pts.push(latLonAltToVec3(lat, lon, r));
       segs.push(pts);
     }
     return segs;
@@ -86,14 +87,7 @@ function Graticule() {
   return (
     <group>
       {lines.map((pts, i) => (
-        <Line
-          key={i}
-          points={pts}
-          color={CYAN}
-          opacity={0.18}
-          transparent
-          lineWidth={1}
-        />
+        <Line key={i} points={pts} color={CYAN} opacity={0.18} transparent lineWidth={1} />
       ))}
     </group>
   );
@@ -112,7 +106,6 @@ function Earth() {
           emissiveIntensity={0.4}
         />
       </mesh>
-      {/* subtle outer glow */}
       <mesh>
         <sphereGeometry args={[EARTH_R * 1.01, 48, 48]} />
         <meshBasicMaterial color={CYAN} transparent opacity={0.04} side={THREE.BackSide} />
@@ -150,10 +143,74 @@ function OrbitRing({ radius, inclinationDeg, raanDeg, color, opacity }: {
   );
 }
 
-function SatelliteMarker({ position, color, label, size, isPrimary }: {
+// Build vertices on the unit sphere for a spherical cap centered at (lat,lon)
+// with the given angular half-radius (radians).
+function capRimPoints(latDeg: number, lonDeg: number, halfAngle: number, segments = 64, radius = 1.002) {
+  const c = latLonAltToVec3(latDeg, lonDeg, 1).normalize();
+  const helper = Math.abs(c.y) < 0.95 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+  const u = new THREE.Vector3().crossVectors(helper, c).normalize();
+  const v = new THREE.Vector3().crossVectors(c, u).normalize();
+  const pts: THREE.Vector3[] = [];
+  for (let i = 0; i <= segments; i++) {
+    const theta = (i / segments) * Math.PI * 2;
+    const p = new THREE.Vector3()
+      .addScaledVector(c, Math.cos(halfAngle))
+      .addScaledVector(u, Math.sin(halfAngle) * Math.cos(theta))
+      .addScaledVector(v, Math.sin(halfAngle) * Math.sin(theta))
+      .normalize()
+      .multiplyScalar(radius);
+    pts.push(p);
+  }
+  return { center: c.clone().multiplyScalar(radius), rim: pts };
+}
+
+function CoverageFootprint({ latDeg, lonDeg, halfAngle, emphasize }: {
+  latDeg: number;
+  lonDeg: number;
+  halfAngle: number;
+  emphasize: boolean;
+}) {
+  const { capGeom, rim } = useMemo(() => {
+    const { center, rim } = capRimPoints(latDeg, lonDeg, halfAngle, 72, 1.003);
+    const positions: number[] = [];
+    const indices: number[] = [];
+    positions.push(center.x, center.y, center.z);
+    for (const p of rim) positions.push(p.x, p.y, p.z);
+    for (let i = 1; i <= rim.length - 1; i++) indices.push(0, i, i + 1);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    g.setIndex(indices);
+    g.computeVertexNormals();
+    return { capGeom: g, rim };
+  }, [latDeg, lonDeg, halfAngle]);
+
+  // Translucent cap (alpha-stacking creates natural brightening where footprints overlap).
+  return (
+    <group>
+      <mesh geometry={capGeom}>
+        <meshBasicMaterial
+          color={CYAN}
+          transparent
+          opacity={emphasize ? 0.16 : 0.08}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+      <Line
+        points={rim}
+        color={CYAN}
+        opacity={emphasize ? 0.55 : 0.32}
+        transparent
+        lineWidth={1}
+      />
+    </group>
+  );
+}
+
+function SatelliteNode({ position, color, size, isPrimary }: {
   position: THREE.Vector3;
   color: THREE.Color;
-  label: string;
   size: number;
   isPrimary: boolean;
 }) {
@@ -184,23 +241,56 @@ function SatelliteMarker({ position, color, label, size, isPrimary }: {
           </mesh>
         </>
       )}
-      <Html
-        center
-        distanceFactor={6}
-        position={[0, size * 2.5, 0]}
-        style={{ pointerEvents: "none" }}
-      >
+    </group>
+  );
+}
+
+// Label with leader line + back-side occlusion (hides when satellite is on the far hemisphere).
+function SatelliteLabel({ position, label, stagger }: {
+  position: THREE.Vector3;
+  label: string;
+  stagger: number;
+}) {
+  const labelEndRef = useRef<THREE.Vector3>(new THREE.Vector3());
+  const labelEnd = useMemo(() => {
+    const dir = position.clone().normalize();
+    const r = position.length() + 0.22 + stagger * 0.18;
+    return dir.multiplyScalar(r);
+  }, [position, stagger]);
+  labelEndRef.current = labelEnd;
+
+  const leaderPts = useMemo(() => [position, labelEnd], [position, labelEnd]);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const lineGroupRef = useRef<THREE.Group>(null);
+
+  useFrame(({ camera }) => {
+    const camDir = camera.position.clone().normalize();
+    const satDir = position.clone().normalize();
+    const dot = camDir.dot(satDir);
+    const visible = dot > 0.08;
+    if (wrapRef.current) wrapRef.current.style.opacity = visible ? "1" : "0";
+    if (lineGroupRef.current) lineGroupRef.current.visible = visible;
+  });
+
+  return (
+    <group>
+      <group ref={lineGroupRef}>
+        <Line points={leaderPts} color={CYAN} opacity={0.45} transparent lineWidth={1} />
+      </group>
+      <Html center distanceFactor={6} position={labelEnd} style={{ pointerEvents: "none" }}>
         <div
+          ref={wrapRef}
           style={{
             fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
             fontSize: 10,
             color: "#cfd6df",
-            background: "rgba(8,14,22,0.65)",
-            border: "1px solid rgba(34,211,238,0.25)",
+            background: "rgba(8,14,22,0.78)",
+            border: "1px solid rgba(34,211,238,0.32)",
             padding: "1px 5px",
             borderRadius: 2,
             whiteSpace: "nowrap",
             letterSpacing: "0.05em",
+            transition: "opacity 120ms linear",
           }}
         >
           {label}
@@ -262,18 +352,22 @@ function CascadeArc({ from, to, label }: {
   );
 }
 
+type SatViz = {
+  item: RosterItem;
+  op: OrbitalParams;
+  position: THREE.Vector3;
+  color: THREE.Color;
+  size: number;
+  isPrimary: boolean;
+  orbitRadius: number;
+  inclination: number;
+  raan: number;
+  halfAngle: number;
+  labelStagger: number;
+};
+
 function Scene({ sats, links }: {
-  sats: Array<{
-    item: RosterItem;
-    op: OrbitalParams;
-    position: THREE.Vector3;
-    color: THREE.Color;
-    size: number;
-    isPrimary: boolean;
-    orbitRadius: number;
-    inclination: number;
-    raan: number;
-  }>;
+  sats: SatViz[];
   links: Array<{ from: THREE.Vector3; to: THREE.Vector3; label: string }>;
 }) {
   return (
@@ -282,27 +376,43 @@ function Scene({ sats, links }: {
       <directionalLight position={[3, 2, 4]} intensity={0.9} />
       <Earth />
       {sats.map((s) => (
+        <CoverageFootprint
+          key={`f-${s.item.id}`}
+          latDeg={s.op.latitude_deg}
+          lonDeg={s.op.longitude_deg}
+          halfAngle={s.halfAngle}
+          emphasize={s.isPrimary}
+        />
+      ))}
+      {sats.map((s) => (
         <OrbitRing
           key={`o-${s.item.id}`}
           radius={s.orbitRadius}
           inclinationDeg={s.inclination}
           raanDeg={s.raan}
           color={s.isPrimary ? CYAN : "#3a4a5c"}
-          opacity={s.isPrimary ? 0.55 : 0.32}
+          opacity={s.isPrimary ? 0.55 : 0.28}
         />
       ))}
       {sats.map((s) => (
-        <SatelliteMarker
+        <SatelliteNode
           key={`s-${s.item.id}`}
           position={s.position}
           color={s.color}
-          label={s.item.name}
           size={s.size}
           isPrimary={s.isPrimary}
         />
       ))}
+      {sats.map((s) => (
+        <SatelliteLabel
+          key={`l-${s.item.id}`}
+          position={s.position}
+          label={s.item.name}
+          stagger={s.labelStagger}
+        />
+      ))}
       {links.map((l, i) => (
-        <CascadeArc key={`l-${i}`} from={l.from} to={l.to} label={l.label} />
+        <CascadeArc key={`c-${i}`} from={l.from} to={l.to} label={l.label} />
       ))}
       <OrbitControls
         enablePan={false}
@@ -310,7 +420,7 @@ function Scene({ sats, links }: {
         autoRotate
         autoRotateSpeed={0.35}
         minDistance={2.2}
-        maxDistance={8}
+        maxDistance={9}
       />
     </>
   );
@@ -389,12 +499,14 @@ export function ConstellationGlobe({
     [roster],
   );
 
-  const sats = useMemo(() => {
-    const out = [];
-    for (const r of roster) {
-      if (typeof r.norad_id !== "number") continue;
-      const op = params[r.norad_id];
-      if (!op) continue;
+  const sats = useMemo<SatViz[]>(() => {
+    // Pre-sort by longitude so adjacent labels get different vertical staggers.
+    const items = roster
+      .filter((r) => typeof r.norad_id === "number" && params[r.norad_id!])
+      .map((r) => ({ r, op: params[r.norad_id!] }))
+      .sort((a, b) => a.op.longitude_deg - b.op.longitude_deg);
+
+    return items.map(({ r, op }, idx) => {
       const orbitRadius = altToRadius(op.altitude_km);
       const position = latLonAltToVec3(op.latitude_deg, op.longitude_deg, orbitRadius);
       const sr = resByName[r.name];
@@ -404,8 +516,10 @@ export function ConstellationGlobe({
       const size = 0.022 + 0.028 * valueFrac;
       const isGeo = (op.orbit_type ?? "").toUpperCase().includes("GEO");
       const inclination = isGeo ? 0 : Math.max(Math.abs(op.latitude_deg), 25);
-      const raan = op.longitude_deg; // visually distributes orbits
-      out.push({
+      const raan = op.longitude_deg;
+      // Real Earth-coverage half-angle (radians) from altitude.
+      const halfAngle = Math.acos(EARTH_KM / (EARTH_KM + Math.max(120, op.altitude_km)));
+      return {
         item: r,
         op,
         position,
@@ -415,9 +529,10 @@ export function ConstellationGlobe({
         orbitRadius,
         inclination,
         raan,
-      });
-    }
-    return out;
+        halfAngle,
+        labelStagger: idx % 4,
+      };
+    });
   }, [roster, params, resByName, primaryName, maxAsset]);
 
   const positionByName = useMemo(() => {
@@ -467,7 +582,7 @@ export function ConstellationGlobe({
         )}
         {!loading && !error && (
           <Canvas
-            camera={{ position: [0, 1.2, 3.6], fov: 45 }}
+            camera={{ position: [0, 1.2, 4.2], fov: 45 }}
             style={{ background: "transparent" }}
             gl={{ alpha: true, antialias: true }}
           >
