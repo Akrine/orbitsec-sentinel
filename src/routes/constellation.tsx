@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
-import { ConstellationSchematic } from "@/components/ConstellationSchematic";
+import { ConstellationNetwork } from "@/components/ConstellationNetwork";
 import { apiFetch, getToken, pluralize } from "@/lib/api";
 
 export const Route = createFileRoute("/constellation")({
