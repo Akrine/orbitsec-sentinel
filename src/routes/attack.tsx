@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
 import { apiFetch } from "@/lib/api";
 import { useActiveSatellite } from "@/lib/activeSatellite";
+import { CascadeGraph } from "@/components/CascadeGraph";
 
 export const Route = createFileRoute("/attack")({
   head: () => ({
