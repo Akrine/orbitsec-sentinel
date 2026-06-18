@@ -104,9 +104,11 @@ export function ConstellationSchematic({
             .filter((r) => r.norad_id)
             .map(async (r) => {
               try {
-                const p = await apiFetch<OrbitalParams>(
+                const res = await apiFetch(
                   `/api/satellite/${r.norad_id}/orbital_params`
                 );
+                if (!res.ok) return [r.id, null] as const;
+                const p = (await res.json()) as OrbitalParams;
                 return [r.id, p] as const;
               } catch {
                 return [r.id, null] as const;
