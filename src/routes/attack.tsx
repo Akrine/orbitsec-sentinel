@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
 import { apiFetch } from "@/lib/api";
 import { useActiveSatellite } from "@/lib/activeSatellite";
+import { CascadeGraph } from "@/components/CascadeGraph";
 
 export const Route = createFileRoute("/attack")({
   head: () => ({
@@ -609,6 +610,9 @@ function Attack() {
                       </div>
                     </div>
                   )}
+
+                  {/* 7b. Cascade dependency graph */}
+                  {r.subsystem_impacts && <CascadeGraph result={r} />}
 
                   {/* 8. Recovery timeline */}
                   {r.engine && Array.isArray(r.recovery_timeline) && r.recovery_timeline.filter((p: any) => p?.status === "required").length > 0 && (() => {
