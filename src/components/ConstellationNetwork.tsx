@@ -370,10 +370,10 @@ export function ConstellationNetwork({
                 <line x1={HUB_X} y1={HUB_Y - 2} x2={HUB_X} y2={HUB_Y + 8} />
                 <circle cx={HUB_X} cy={HUB_Y + 10} r={2} fill="#7a8a9a" />
               </g>
-              <text x={HUB_X} y={HUB_Y + 46} textAnchor="middle" fontSize={11} letterSpacing={2} fill={COLORS.muted}>
+              <text x={HUB_X} y={HUB_Y + 40} textAnchor="middle" fontSize={12} letterSpacing={2} fill={COLORS.muted}>
                 SHARED GROUND SEGMENT
               </text>
-              <text x={HUB_X} y={HUB_Y + 61} textAnchor="middle" fontSize={10} letterSpacing={1.5} fill={COLORS.dim}>
+              <text x={HUB_X} y={HUB_Y + 54} textAnchor="middle" fontSize={11} letterSpacing={1.5} fill={COLORS.dim}>
                 {sharedStations}/{totalStations} STATIONS SHARED
               </text>
             </g>
