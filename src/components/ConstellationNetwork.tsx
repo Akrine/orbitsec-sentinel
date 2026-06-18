@@ -41,13 +41,13 @@ const W = 900;
 const H = 470;
 const LEFT = 160;
 const RIGHT = 740;
-const SINGLE_ROW_Y = 135;
-const ROW_TOP_Y = 120;
-const ROW_BOT_Y = 300;
+const SINGLE_ROW_Y = 160;
+const ROW_TOP_Y = 140;
+const ROW_BOT_Y = 310;
 const HUB_X = 450;
-const HUB_Y = 398;
-const LINK_Y = 155; // link entry just under glyph
-const HUB_LINK_Y = 374; // top of hub
+const HUB_Y = 415;
+const LINK_Y = 180; // link entry just under glyph
+const HUB_LINK_Y = 391; // top of hub
 
 function layoutPositions(n: number): { x: number; y: number; row: 0 | 1 }[] {
   if (n <= 0) return [];
