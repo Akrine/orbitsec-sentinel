@@ -436,9 +436,9 @@ export function ConstellationNetwork({
               const bobDur = 5 + ((i * 0.37) % 1.5);
 
               // Label Ys: relative to glyph row
-              const nameY = p.y + 88;
-              const subY = p.y + 106;
-              const statusY = p.y + 122;
+              const nameY = p.y + 55;
+              const subY = p.y + 75;
+              const statusY = p.y + 92;
 
               const altDisplay =
                 s.altitude_km != null
