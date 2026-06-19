@@ -351,8 +351,8 @@ function Constellation() {
           <Panel title="Constellation Attack">
             <div className="p-3 space-y-3">
               <Field label="Attack Type">
-                <select value={attack} onChange={(e) => setAttack(e.target.value)} className={inputCls}>
-                  {ATTACKS_LIVE.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
+                <select value={attack} onChange={(e) => setAttack(e.target.value)} className={selectCls}>
+                  {ATTACKS_LIVE.map((a) => <option key={a.id} value={a.id} style={optionStyle}>{a.label}</option>)}
                 </select>
               </Field>
 
