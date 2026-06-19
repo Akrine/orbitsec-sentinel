@@ -495,7 +495,7 @@ export function ConstellationNetwork({
                   >
                     {s.name.length > 18 ? s.name.slice(0, 17) + "…" : s.name}
                   </text>
-                  <text x={p.x} y={subY} textAnchor="middle" fontSize={12} fill={COLORS.muted}>
+                  <text x={p.x} y={subY} textAnchor="middle" fontSize={13} fill={COLORS.muted}>
                     {altDisplay}
                   </text>
                   <text x={p.x} y={statusY} textAnchor="middle" fontSize={12} fill={c.status} letterSpacing={0.5}>
