@@ -498,7 +498,7 @@ export function ConstellationNetwork({
                   <text x={p.x} y={subY} textAnchor="middle" fontSize={13} fill={COLORS.muted}>
                     {altDisplay}
                   </text>
-                  <text x={p.x} y={statusY} textAnchor="middle" fontSize={12} fill={c.status} letterSpacing={0.5}>
+                  <text x={p.x} y={statusY} textAnchor="middle" fontSize={13} fill={c.status} letterSpacing={0.5}>
                     {statusText}
                   </text>
                 </g>
