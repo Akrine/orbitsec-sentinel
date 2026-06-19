@@ -260,13 +260,13 @@ function Constellation() {
                 <select
                   value={pickName}
                   onChange={(e) => setPickName(e.target.value)}
-                  className={inputCls}
+                  className={selectCls}
                   disabled={savedConfigs.length === 0 || atMax}
                 >
                   {savedConfigs.length === 0 ? (
-                    <option value="">No saved configs</option>
+                    <option value="" style={optionStyle}>No saved configs</option>
                   ) : (
-                    savedConfigs.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)
+                    savedConfigs.map((c) => <option key={c.name} value={c.name} style={optionStyle}>{c.name}</option>)
                   )}
                 </select>
                 <button
