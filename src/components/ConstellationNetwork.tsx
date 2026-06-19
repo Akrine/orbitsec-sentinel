@@ -169,7 +169,7 @@ function SatelliteGlyph({
         dur={`${bobDur}s`}
         repeatCount="indefinite"
       />
-      <g transform={`translate(${x},${y}) scale(0.78)`}>
+      <g transform={`translate(${x},${y}) scale(0.85)`}>
         {/* Left panel */}
         <rect x={-78} y={-16} width={38} height={32} rx={2} fill={c.panelFill} stroke={c.panelStroke} strokeWidth={1} />
         <line x1={-65} y1={-16} x2={-65} y2={16} stroke={c.panelStroke} strokeOpacity={0.35} strokeWidth={0.8} />
