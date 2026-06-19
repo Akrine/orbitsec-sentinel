@@ -315,10 +315,10 @@ function Constellation() {
                 <input type="number" value={shared} onChange={(e) => setShared(+e.target.value)} className={inputCls} />
               </Field>
               <Field label="Crosslink Topology">
-                <select value={topo} onChange={(e) => setTopo(e.target.value)} className={inputCls}>
-                  <option>None</option>
-                  <option>Partial Mesh</option>
-                  <option>Full Mesh</option>
+                <select value={topo} onChange={(e) => setTopo(e.target.value)} className={selectCls}>
+                  <option style={optionStyle}>None</option>
+                  <option style={optionStyle}>Partial Mesh</option>
+                  <option style={optionStyle}>Full Mesh</option>
                 </select>
               </Field>
               <label className="flex items-center gap-2 panel-2 px-2.5 py-2 cursor-pointer">
