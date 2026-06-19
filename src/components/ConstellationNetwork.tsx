@@ -41,13 +41,13 @@ const W = 900;
 const H = 470;
 const LEFT = 160;
 const RIGHT = 740;
-const SINGLE_ROW_Y = 160;
-const ROW_TOP_Y = 140;
-const ROW_BOT_Y = 310;
+const SINGLE_ROW_Y = 110;
+const ROW_TOP_Y = 90;
+const ROW_BOT_Y = 260;
 const HUB_X = 450;
-const HUB_Y = 415;
-const LINK_Y = 180; // link entry just under glyph
-const HUB_LINK_Y = 391; // top of hub
+const HUB_Y = 420;
+const LINK_Y = 135; // link entry just under glyph
+const HUB_LINK_Y = 394; // top of hub
 
 function layoutPositions(n: number): { x: number; y: number; row: 0 | 1 }[] {
   if (n <= 0) return [];
@@ -169,7 +169,7 @@ function SatelliteGlyph({
         dur={`${bobDur}s`}
         repeatCount="indefinite"
       />
-      <g transform={`translate(${x},${y}) scale(0.78)`}>
+      <g transform={`translate(${x},${y}) scale(0.85)`}>
         {/* Left panel */}
         <rect x={-78} y={-16} width={38} height={32} rx={2} fill={c.panelFill} stroke={c.panelStroke} strokeWidth={1} />
         <line x1={-65} y1={-16} x2={-65} y2={16} stroke={c.panelStroke} strokeOpacity={0.35} strokeWidth={0.8} />
@@ -319,9 +319,9 @@ export function ConstellationNetwork({
 
             {/* Grid */}
             <g stroke={COLORS.grid} strokeWidth={1} opacity={0.5}>
-              <line x1={0} y1={110} x2={900} y2={110} />
+              <line x1={0} y1={80} x2={900} y2={80} />
               <line x1={0} y1={240} x2={900} y2={240} />
-              <line x1={0} y1={370} x2={900} y2={370} />
+              <line x1={0} y1={360} x2={900} y2={360} />
               <line x1={225} y1={0} x2={225} y2={470} />
               <line x1={450} y1={0} x2={450} y2={470} />
               <line x1={675} y1={0} x2={675} y2={470} />
@@ -333,7 +333,7 @@ export function ConstellationNetwork({
               const x1 = HUB_X;
               const y1 = HUB_LINK_Y;
               const x2 = p.x;
-              const y2 = p.row === 0 ? LINK_Y : p.y + 60;
+              const y2 = p.y + 25;
               return (
                 <line
                   key={`link-${i}`}
@@ -352,7 +352,7 @@ export function ConstellationNetwork({
             {/* Flowing dots along links */}
             {positions.map((p, i) => {
               const x2 = p.x;
-              const y2 = p.row === 0 ? LINK_Y : p.y + 60;
+              const y2 = p.y + 25;
               const dur = 3 + ((i * 0.13) % 0.8);
               return (
                 <circle key={`flow-${i}`} r={2.5} fill={COLORS.cyan} opacity={0.7}>
@@ -370,10 +370,10 @@ export function ConstellationNetwork({
                 <line x1={HUB_X} y1={HUB_Y - 2} x2={HUB_X} y2={HUB_Y + 8} />
                 <circle cx={HUB_X} cy={HUB_Y + 10} r={2} fill="#7a8a9a" />
               </g>
-              <text x={HUB_X} y={HUB_Y + 40} textAnchor="middle" fontSize={12} letterSpacing={2} fill={COLORS.muted}>
+              <text x={HUB_X} y={HUB_Y + 38} textAnchor="middle" fontSize={12} letterSpacing={2} fill={COLORS.muted}>
                 SHARED GROUND SEGMENT
               </text>
-              <text x={HUB_X} y={HUB_Y + 54} textAnchor="middle" fontSize={11} letterSpacing={1.5} fill={COLORS.dim}>
+              <text x={HUB_X} y={HUB_Y + 48} textAnchor="middle" fontSize={11} letterSpacing={1.5} fill={COLORS.dim}>
                 {sharedStations}/{totalStations} STATIONS SHARED
               </text>
             </g>
@@ -436,9 +436,9 @@ export function ConstellationNetwork({
               const bobDur = 5 + ((i * 0.37) % 1.5);
 
               // Label Ys: relative to glyph row
-              const nameY = p.y + 88;
-              const subY = p.y + 106;
-              const statusY = p.y + 122;
+              const nameY = p.y + 55;
+              const subY = p.y + 75;
+              const statusY = p.y + 92;
 
               const altDisplay =
                 s.altitude_km != null
@@ -471,7 +471,7 @@ export function ConstellationNetwork({
                       </circle>
                       <text
                         x={p.x}
-                        y={p.y - 78}
+                        y={p.y - 68}
                         textAnchor="middle"
                         fontSize={12}
                         letterSpacing={2}
@@ -495,10 +495,10 @@ export function ConstellationNetwork({
                   >
                     {s.name.length > 18 ? s.name.slice(0, 17) + "…" : s.name}
                   </text>
-                  <text x={p.x} y={subY} textAnchor="middle" fontSize={12} fill={COLORS.muted}>
+                  <text x={p.x} y={subY} textAnchor="middle" fontSize={13} fill={COLORS.muted}>
                     {altDisplay}
                   </text>
-                  <text x={p.x} y={statusY} textAnchor="middle" fontSize={12} fill={c.status} letterSpacing={0.5}>
+                  <text x={p.x} y={statusY} textAnchor="middle" fontSize={13} fill={c.status} letterSpacing={0.5}>
                     {statusText}
                   </text>
                 </g>
