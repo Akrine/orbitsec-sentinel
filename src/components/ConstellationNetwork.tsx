@@ -352,7 +352,7 @@ export function ConstellationNetwork({
             {/* Flowing dots along links */}
             {positions.map((p, i) => {
               const x2 = p.x;
-              const y2 = p.row === 0 ? LINK_Y : p.y + 60;
+              const y2 = p.y + 25;
               const dur = 3 + ((i * 0.13) % 0.8);
               return (
                 <circle key={`flow-${i}`} r={2.5} fill={COLORS.cyan} opacity={0.7}>
