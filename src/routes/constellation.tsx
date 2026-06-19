@@ -83,6 +83,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 const inputCls = "w-full panel-2 px-2.5 py-1.5 text-xs font-mono bg-transparent rounded outline-none focus:border-primary/50";
+const selectCls = "w-full px-2.5 py-1.5 text-xs font-mono rounded border border-border bg-surface-2 text-foreground outline-none focus:border-primary appearance-none [&>option]:bg-surface-2 [&>option]:text-foreground";
+const optionStyle = { backgroundColor: "var(--color-surface-2)", color: "var(--foreground)" } as const;
 
 function valueM(cfg: any): string {
   const v = cfg?.financial?.asset_value_usd ?? 0;
@@ -258,13 +260,13 @@ function Constellation() {
                 <select
                   value={pickName}
                   onChange={(e) => setPickName(e.target.value)}
-                  className={inputCls}
+                  className={selectCls}
                   disabled={savedConfigs.length === 0 || atMax}
                 >
                   {savedConfigs.length === 0 ? (
-                    <option value="">No saved configs</option>
+                    <option value="" style={optionStyle}>No saved configs</option>
                   ) : (
-                    savedConfigs.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)
+                    savedConfigs.map((c) => <option key={c.name} value={c.name} style={optionStyle}>{c.name}</option>)
                   )}
                 </select>
                 <button
@@ -313,10 +315,10 @@ function Constellation() {
                 <input type="number" value={shared} onChange={(e) => setShared(+e.target.value)} className={inputCls} />
               </Field>
               <Field label="Crosslink Topology">
-                <select value={topo} onChange={(e) => setTopo(e.target.value)} className={inputCls}>
-                  <option>None</option>
-                  <option>Partial Mesh</option>
-                  <option>Full Mesh</option>
+                <select value={topo} onChange={(e) => setTopo(e.target.value)} className={selectCls}>
+                  <option style={optionStyle}>None</option>
+                  <option style={optionStyle}>Partial Mesh</option>
+                  <option style={optionStyle}>Full Mesh</option>
                 </select>
               </Field>
               <label className="flex items-center gap-2 panel-2 px-2.5 py-2 cursor-pointer">
@@ -349,8 +351,8 @@ function Constellation() {
           <Panel title="Constellation Attack">
             <div className="p-3 space-y-3">
               <Field label="Attack Type">
-                <select value={attack} onChange={(e) => setAttack(e.target.value)} className={inputCls}>
-                  {ATTACKS_LIVE.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
+                <select value={attack} onChange={(e) => setAttack(e.target.value)} className={selectCls}>
+                  {ATTACKS_LIVE.map((a) => <option key={a.id} value={a.id} style={optionStyle}>{a.label}</option>)}
                 </select>
               </Field>
 

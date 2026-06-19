@@ -69,6 +69,8 @@ const ACTOR_MAP: Record<string, string> = {
 };
 
 const inputCls = "w-full panel-2 px-2.5 py-1.5 text-xs font-mono bg-transparent rounded outline-none focus:border-primary/50";
+const selectCls = "w-full px-2.5 py-1.5 text-xs font-mono rounded border border-border bg-surface-2 text-foreground outline-none focus:border-primary appearance-none [&>option]:bg-surface-2 [&>option]:text-foreground";
+const optionStyle = { backgroundColor: "var(--color-surface-2)", color: "var(--foreground)" } as const;
 
 function color(v: number) {
   if (v < 25) return { txt: "text-critical", bar: "bg-critical" };
@@ -224,9 +226,9 @@ function Scenarios() {
 
           <Panel title="Scenario">
             <div className="p-3 space-y-3">
-              <select value={scenId} onChange={(e) => setScenId(e.target.value)} className={inputCls}>
+              <select value={scenId} onChange={(e) => setScenId(e.target.value)} className={selectCls}>
                 {SCENARIOS.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name} ({s.short})</option>
+                  <option key={s.id} value={s.id} style={optionStyle}>{s.name} ({s.short})</option>
                 ))}
               </select>
 
