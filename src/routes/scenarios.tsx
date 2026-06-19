@@ -226,9 +226,9 @@ function Scenarios() {
 
           <Panel title="Scenario">
             <div className="p-3 space-y-3">
-              <select value={scenId} onChange={(e) => setScenId(e.target.value)} className={inputCls}>
+              <select value={scenId} onChange={(e) => setScenId(e.target.value)} className={selectCls}>
                 {SCENARIOS.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name} ({s.short})</option>
+                  <option key={s.id} value={s.id} style={optionStyle}>{s.name} ({s.short})</option>
                 ))}
               </select>
 
