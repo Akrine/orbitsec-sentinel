@@ -333,7 +333,7 @@ export function ConstellationNetwork({
               const x1 = HUB_X;
               const y1 = HUB_LINK_Y;
               const x2 = p.x;
-              const y2 = p.row === 0 ? LINK_Y : p.y + 60;
+              const y2 = p.y + 25;
               return (
                 <line
                   key={`link-${i}`}
