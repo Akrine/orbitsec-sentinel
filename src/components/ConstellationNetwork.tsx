@@ -319,9 +319,9 @@ export function ConstellationNetwork({
 
             {/* Grid */}
             <g stroke={COLORS.grid} strokeWidth={1} opacity={0.5}>
-              <line x1={0} y1={110} x2={900} y2={110} />
+              <line x1={0} y1={80} x2={900} y2={80} />
               <line x1={0} y1={240} x2={900} y2={240} />
-              <line x1={0} y1={370} x2={900} y2={370} />
+              <line x1={0} y1={360} x2={900} y2={360} />
               <line x1={225} y1={0} x2={225} y2={470} />
               <line x1={450} y1={0} x2={450} y2={470} />
               <line x1={675} y1={0} x2={675} y2={470} />
