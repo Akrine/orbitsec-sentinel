@@ -133,6 +133,8 @@ function Attack() {
     ADCS: true, EPS: true, Comms: true, Thermal: true, Payload: true, GroundSegment: true,
   });
   const [pdfPending, setPdfPending] = useState(false);
+  const [sensitivityLoading, setSensitivityLoading] = useState(false);
+  const [sensitivityFailed, setSensitivityFailed] = useState(false);
 
   async function exportPdf() {
     if (!result) return;
@@ -202,6 +204,8 @@ function Attack() {
     setRunning(true);
     setError(null);
     setResult(null);
+    setSensitivityFailed(false);
+    setSensitivityLoading(false);
     try {
       const body = {
         attack_type: ATTACK_MAP[attack],
@@ -231,6 +235,8 @@ function Attack() {
       setCompletedAt(new Date());
       toast.success("Simulation complete");
       if (sa) {
+        setSensitivityLoading(true);
+        setSensitivityFailed(false);
         try {
           const sRes = await apiFetch("/api/simulate/sensitivity", {
             method: "POST",
@@ -239,16 +245,27 @@ function Attack() {
           if (sRes.ok) {
             const sData = await sRes.json().catch(() => ({}));
             if (sData?.sensitivity_ranking) {
-              setResult((prev: any) => prev ? {
-                ...prev,
-                sensitivity_ranking: sData.sensitivity_ranking,
-                sensitivity_ranking_defense: sData.sensitivity_ranking_defense,
-                autonomy_recovery_swing: sData.autonomy_recovery_swing,
-              } : prev);
+              setResult((prev: any) => {
+                if (!prev) return prev;
+                const next: any = { ...prev, sensitivity_ranking: sData.sensitivity_ranking };
+                if (sData.sensitivity_ranking_defense !== undefined) {
+                  next.sensitivity_ranking_defense = sData.sensitivity_ranking_defense;
+                }
+                if (sData.autonomy_recovery_swing !== undefined) {
+                  next.autonomy_recovery_swing = sData.autonomy_recovery_swing;
+                }
+                return next;
+              });
+            } else {
+              setSensitivityFailed(true);
             }
+          } else {
+            setSensitivityFailed(true);
           }
         } catch {
-          // ignore — sensitivity is optional
+          setSensitivityFailed(true);
+        } finally {
+          setSensitivityLoading(false);
         }
       }
     } catch (e: any) {
@@ -898,11 +915,20 @@ function Attack() {
 
                   {/* 13. PDF Export */}
                   {r.engine === true && (
-                    <div className="pt-2">
-                      <button type="button" disabled={pdfPending} onClick={exportPdf}
+                    <div className="pt-2 space-y-2">
+                      <button type="button" disabled={pdfPending || sensitivityLoading} onClick={exportPdf}
                         className="w-full h-10 rounded-md border border-primary/60 bg-primary/10 text-primary text-[11px] font-mono uppercase tracking-[0.14em] hover:bg-primary/20 disabled:opacity-50">
-                        {pdfPending ? "Generating PDF..." : "Export PDF Report"}
+                        {pdfPending
+                          ? "Generating PDF..."
+                          : sensitivityLoading
+                            ? "Finalizing sensitivity analysis…"
+                            : "Export PDF Report"}
                       </button>
+                      {sensitivityFailed && !sensitivityLoading && (
+                        <div className="text-[10px] font-mono text-muted-foreground">
+                          Sensitivity analysis unavailable — PDF will export without sensitivity section.
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
