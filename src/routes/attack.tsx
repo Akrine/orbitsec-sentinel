@@ -133,6 +133,8 @@ function Attack() {
     ADCS: true, EPS: true, Comms: true, Thermal: true, Payload: true, GroundSegment: true,
   });
   const [pdfPending, setPdfPending] = useState(false);
+  const [sensitivityLoading, setSensitivityLoading] = useState(false);
+  const [sensitivityFailed, setSensitivityFailed] = useState(false);
 
   async function exportPdf() {
     if (!result) return;
