@@ -204,6 +204,8 @@ function Attack() {
     setRunning(true);
     setError(null);
     setResult(null);
+    setSensitivityFailed(false);
+    setSensitivityLoading(false);
     try {
       const body = {
         attack_type: ATTACK_MAP[attack],
