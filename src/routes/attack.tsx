@@ -239,7 +239,12 @@ function Attack() {
           if (sRes.ok) {
             const sData = await sRes.json().catch(() => ({}));
             if (sData?.sensitivity_ranking) {
-              setResult((prev: any) => prev ? { ...prev, sensitivity_ranking: sData.sensitivity_ranking } : prev);
+              setResult((prev: any) => prev ? {
+                ...prev,
+                sensitivity_ranking: sData.sensitivity_ranking,
+                sensitivity_ranking_defense: sData.sensitivity_ranking_defense,
+                autonomy_recovery_swing: sData.autonomy_recovery_swing,
+              } : prev);
             }
           }
         } catch {
