@@ -233,6 +233,8 @@ function Attack() {
       setCompletedAt(new Date());
       toast.success("Simulation complete");
       if (sa) {
+        setSensitivityLoading(true);
+        setSensitivityFailed(false);
         try {
           const sRes = await apiFetch("/api/simulate/sensitivity", {
             method: "POST",
@@ -241,16 +243,27 @@ function Attack() {
           if (sRes.ok) {
             const sData = await sRes.json().catch(() => ({}));
             if (sData?.sensitivity_ranking) {
-              setResult((prev: any) => prev ? {
-                ...prev,
-                sensitivity_ranking: sData.sensitivity_ranking,
-                sensitivity_ranking_defense: sData.sensitivity_ranking_defense,
-                autonomy_recovery_swing: sData.autonomy_recovery_swing,
-              } : prev);
+              setResult((prev: any) => {
+                if (!prev) return prev;
+                const next: any = { ...prev, sensitivity_ranking: sData.sensitivity_ranking };
+                if (sData.sensitivity_ranking_defense !== undefined) {
+                  next.sensitivity_ranking_defense = sData.sensitivity_ranking_defense;
+                }
+                if (sData.autonomy_recovery_swing !== undefined) {
+                  next.autonomy_recovery_swing = sData.autonomy_recovery_swing;
+                }
+                return next;
+              });
+            } else {
+              setSensitivityFailed(true);
             }
+          } else {
+            setSensitivityFailed(true);
           }
         } catch {
-          // ignore — sensitivity is optional
+          setSensitivityFailed(true);
+        } finally {
+          setSensitivityLoading(false);
         }
       }
     } catch (e: any) {
