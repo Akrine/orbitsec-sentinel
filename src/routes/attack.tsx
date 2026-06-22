@@ -915,11 +915,20 @@ function Attack() {
 
                   {/* 13. PDF Export */}
                   {r.engine === true && (
-                    <div className="pt-2">
-                      <button type="button" disabled={pdfPending} onClick={exportPdf}
+                    <div className="pt-2 space-y-2">
+                      <button type="button" disabled={pdfPending || sensitivityLoading} onClick={exportPdf}
                         className="w-full h-10 rounded-md border border-primary/60 bg-primary/10 text-primary text-[11px] font-mono uppercase tracking-[0.14em] hover:bg-primary/20 disabled:opacity-50">
-                        {pdfPending ? "Generating PDF..." : "Export PDF Report"}
+                        {pdfPending
+                          ? "Generating PDF..."
+                          : sensitivityLoading
+                            ? "Finalizing sensitivity analysis…"
+                            : "Export PDF Report"}
                       </button>
+                      {sensitivityFailed && !sensitivityLoading && (
+                        <div className="text-[10px] font-mono text-muted-foreground">
+                          Sensitivity analysis unavailable — PDF will export without sensitivity section.
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
