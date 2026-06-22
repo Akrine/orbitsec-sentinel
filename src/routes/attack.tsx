@@ -239,7 +239,12 @@ function Attack() {
           if (sRes.ok) {
             const sData = await sRes.json().catch(() => ({}));
             if (sData?.sensitivity_ranking) {
-              setResult((prev: any) => prev ? { ...prev, sensitivity_ranking: sData.sensitivity_ranking } : prev);
+              setResult((prev: any) => prev ? {
+                ...prev,
+                sensitivity_ranking: sData.sensitivity_ranking,
+                sensitivity_ranking_defense: sData.sensitivity_ranking_defense,
+                autonomy_recovery_swing: sData.autonomy_recovery_swing,
+              } : prev);
             }
           }
         } catch {
@@ -690,30 +695,74 @@ function Attack() {
 
                   {/* 10. Sensitivity */}
                   {Array.isArray(r.sensitivity_ranking) && r.sensitivity_ranking.length > 0 && (() => {
-                    const ranking = r.sensitivity_ranking as [string, number][];
-                    const maxSwing = Math.max(...ranking.map(([, s]) => Math.abs(Number(s) || 0)), 0.0001);
-                    const barColor = (s: number) => s > 10 ? "oklch(0.65 0.22 22)" : s > 2 ? "oklch(0.78 0.16 75)" : "oklch(0.55 0.02 250)";
-                    return (
-                      <div>
-                        <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground mb-2">Sensitivity Analysis (±20% perturbation)</div>
+                    const titleCase = (s: string) => s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+                    const levelOf = (s: number): "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" =>
+                      s > 10 ? "CRITICAL" : s > 2 ? "HIGH" : s > 0.5 ? "MEDIUM" : "LOW";
+                    const barBg = (lvl: string) =>
+                      lvl === "CRITICAL" ? "bg-critical/40" : lvl === "HIGH" ? "bg-high/40" : lvl === "MEDIUM" ? "bg-medium/40" : "bg-low/40";
+
+                    const renderTable = (ranking: [string, number][]) => {
+                      const maxSwing = Math.max(...ranking.map(([, s]) => Math.abs(Number(s) || 0)), 0.0001);
+                      return (
                         <div className="space-y-2">
                           {ranking.map(([name, swing], i) => {
                             const s = Math.abs(Number(swing) || 0);
                             const pct = (s / maxSwing) * 100;
+                            const lvl = levelOf(s);
                             return (
                               <div key={`${name}-${i}`} className="panel-2 px-3 py-2">
-                                <div className="flex items-center justify-between text-xs font-mono mb-1.5">
-                                  <span className="truncate pr-2">{String(name).replace(/_/g, " ")}</span>
-                                  <span>{s.toFixed(1)}%</span>
+                                <div className="flex items-center justify-between gap-3 text-xs font-mono mb-1.5">
+                                  <span className="truncate pr-2">{titleCase(String(name))}</span>
+                                  <StatusBadge level={lvl} />
                                 </div>
-                                <div className="h-1.5 rounded-full bg-surface-2 border border-border overflow-hidden">
-                                  <div className="h-full rounded-full" style={{ width: `${pct}%`, background: barColor(s) }} />
+                                <div className="h-4 rounded-sm bg-surface-2 border border-border overflow-hidden relative">
+                                  <div className={`h-full ${barBg(lvl)}`} style={{ width: `${pct}%` }} />
+                                  <div className="absolute inset-0 flex items-center px-2 text-[10px] font-mono text-foreground">
+                                    {s.toFixed(1)}%
+                                  </div>
                                 </div>
                               </div>
                             );
                           })}
                         </div>
-                        <div className="mt-2 text-[11px] font-mono text-muted-foreground">Degradation swing when parameter varied ±20%</div>
+                      );
+                    };
+
+                    const rankingAtk = r.sensitivity_ranking as [string, number][];
+                    const rankingDef = Array.isArray(r.sensitivity_ranking_defense) ? (r.sensitivity_ranking_defense as [string, number][]) : [];
+                    const dualMode = rankingDef.length > 0;
+                    const autonomy = typeof r.autonomy_recovery_swing === "number" ? r.autonomy_recovery_swing : null;
+
+                    if (!dualMode) {
+                      return (
+                        <div>
+                          <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground mb-1">Sensitivity Analysis</div>
+                          <div className="text-[11px] font-mono text-muted-foreground mb-2">Parameter swing under ±20% perturbation</div>
+                          {renderTable(rankingAtk)}
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-5">
+                        <div>
+                          <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground mb-1">Attack Intensity Sensitivity</div>
+                          <div className="text-[11px] font-mono text-muted-foreground mb-2">How much each attacker capability changes mission degradation (±20% perturbation)</div>
+                          {renderTable(rankingAtk)}
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground mb-1">Defensive Resilience Sensitivity</div>
+                          <div className="text-[11px] font-mono text-muted-foreground mb-2">How much each defense reduces ADCS pointing impact (±20% perturbation)</div>
+                          {renderTable(rankingDef)}
+                        </div>
+                        {autonomy !== null && (
+                          <div className="panel-2 px-4 py-3 border-l-2 border-accent">
+                            <div className="text-xs font-mono font-bold text-accent mb-1.5">Recovery Autonomy (separate metric)</div>
+                            <div className="text-[11px] font-mono text-muted-foreground leading-relaxed">
+                              Onboard autonomy is the highest-leverage recovery investment — it reduces operational recovery cost by ~{autonomy.toFixed(0)}% of baseline. This is measured on recovery cost, not pointing impact, so it is not comparable to the swings above. Autonomy does not reduce pointing degradation during the attack; it shortens and cheapens recovery afterward.
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
