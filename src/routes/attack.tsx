@@ -410,7 +410,32 @@ function Attack() {
             <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               {attack === "gps-spoof" && <>
                 <Field label="Position Offset (meters)" hint="100 – 50,000"><Input type="number" min={100} max={50000} value={posOffset} onChange={(e) => setPosOffset(+e.target.value)} /></Field>
-                <Field label="Signal Power (Watts)" hint="10 – 1,000"><Input type="number" min={10} max={1000} value={sigPower} onChange={(e) => setSigPower(+e.target.value)} /></Field>
+                <Field label="Signal Power (Watts)" hint="1 – 100,000 (log slider)">
+                  <div className="space-y-2">
+                    <Input type="number" min={1} max={100000} value={sigPower} onChange={(e) => setSigPower(+e.target.value)} />
+                    <Slider
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={[Math.max(0, Math.min(100, Math.round((Math.log10(Math.max(1, sigPower)) / 5) * 100)))]}
+                      onValueChange={(v) => setSigPower(Math.round(10 ** ((v[0] / 100) * 5)))}
+                    />
+                    {gpsThreshold && (() => {
+                      const s = gpsThreshold.power_start_capture_w;
+                      const f = gpsThreshold.power_full_capture_w;
+                      const fmtW = (w: number) => w >= 1000 ? `${(w / 1000).toFixed(1)} kW` : `${w.toFixed(1)} W`;
+                      const binary = Math.abs(f - s) <= 0.01 * Math.max(s, f);
+                      return (
+                        <div className="text-xs text-muted-foreground font-mono">
+                          {binary
+                            ? <>Capture threshold for {activeName}: ~{fmtW(s)}</>
+                            : <>Capture threshold for {activeName}: ~{fmtW(s)} to start · ~{fmtW(f)} for full capture</>}
+                          <div className="opacity-70">Below this, the spoof cannot capture the receiver at this altitude.</div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </Field>
               </>}
               {attack === "rf-jam" && <>
                 <Field label="Jammer Power (Watts)"><Input type="number" value={jamPower} onChange={(e) => setJamPower(+e.target.value)} /></Field>
