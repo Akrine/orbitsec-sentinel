@@ -138,6 +138,28 @@ function Attack() {
   const [sensitivityLoading, setSensitivityLoading] = useState(false);
   const [sensitivityFailed, setSensitivityFailed] = useState(false);
 
+  useEffect(() => {
+    if (attack !== "gps-spoof" || !activeConfig) { setGpsThreshold(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiFetch("/api/gps_threshold", {
+          method: "POST",
+          body: JSON.stringify({
+            satellite_name: activeName,
+            satellite_config: activeConfig,
+            altitude_km: (activeConfig as any)?.altitude_km,
+          }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!cancelled && data && data.success) {
+          setGpsThreshold({ power_start_capture_w: data.power_start_capture_w, power_full_capture_w: data.power_full_capture_w });
+        } else if (!cancelled) { setGpsThreshold(null); }
+      } catch { if (!cancelled) setGpsThreshold(null); }
+    })();
+    return () => { cancelled = true; };
+  }, [attack, activeName, activeConfig]);
+
   async function exportPdf() {
     if (!result) return;
     setPdfPending(true);
