@@ -100,6 +100,7 @@ function Attack() {
   // params
   const [posOffset, setPosOffset] = useState(12000);
   const [sigPower, setSigPower] = useState(150);
+  const [gpsThreshold, setGpsThreshold] = useState<{ power_start_capture_w: number; power_full_capture_w: number } | null>(null);
   const [jamPower, setJamPower] = useState(100);
   const [jamFreq, setJamFreq] = useState(2200);
   const [jamType, setJamType] = useState("Barrage");
