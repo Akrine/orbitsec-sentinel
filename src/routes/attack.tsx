@@ -451,6 +451,15 @@ function Attack() {
                       : `Capture threshold for ${activeName ?? "this target"}: ~${gpsThreshold.power_start_capture_w >= 1000 ? (gpsThreshold.power_start_capture_w/1000).toFixed(1)+" kW" : gpsThreshold.power_start_capture_w.toFixed(1)+" W"} to start · ~${gpsThreshold.power_full_capture_w >= 1000 ? (gpsThreshold.power_full_capture_w/1000).toFixed(1)+" kW" : gpsThreshold.power_full_capture_w.toFixed(1)+" W"} for full capture.`}
                   </p>
                 )}
+                {gpsMissionThreshold && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {gpsMissionThreshold.mission_impact_threshold_m === null
+                      ? "Mission impact: not achievable for this target and actor at the current signal power (the receiver is not captured)."
+                      : gpsMissionThreshold.mission_impact_threshold_m >= 100000
+                        ? "Mission-impact offset: effectively unreachable for this actor (>100 km) — this actor cannot degrade the mission via GPS spoofing."
+                        : `Mission-impact offset: inject a position error exceeding ~${gpsMissionThreshold.mission_impact_threshold_m >= 1000 ? (gpsMissionThreshold.mission_impact_threshold_m/1000).toFixed(1)+" km" : Math.round(gpsMissionThreshold.mission_impact_threshold_m)+" m"} to degrade the mission. Below this, a successful spoof captures the receiver but causes no mission impact.`}
+                  </p>
+                )}
               </>}
               {attack === "rf-jam" && <>
                 <Field label="Jammer Power (Watts)"><Input type="number" value={jamPower} onChange={(e) => setJamPower(+e.target.value)} /></Field>
