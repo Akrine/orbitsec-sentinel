@@ -457,7 +457,7 @@ function Attack() {
                       ? "Mission impact: not achievable for this target and actor at the current signal power (the receiver is not captured)."
                       : gpsMissionThreshold.mission_impact_threshold_m >= 100000
                         ? "Mission-impact offset: effectively unreachable for this actor (>100 km) — this actor cannot degrade the mission via GPS spoofing."
-                        : `Mission-impact offset: inject a position error exceeding ~${gpsMissionThreshold.mission_impact_threshold_m >= 1000 ? (gpsMissionThreshold.mission_impact_threshold_m/1000).toFixed(1)+" km" : Math.round(gpsMissionThreshold.mission_impact_threshold_m)+" m"} to degrade the mission. Below this, a successful spoof captures the receiver but causes no mission impact.`}
+                        : `Mission-impact offset: inject a position error exceeding ~${gpsMissionThreshold.mission_impact_threshold_m >= 1000 ? (gpsMissionThreshold.mission_impact_threshold_m/1000).toFixed(1)+" km" : Math.round(gpsMissionThreshold.mission_impact_threshold_m)+" m"} to degrade the imaging payload. Below this, a successful spoof stresses attitude control but the payload mission stays intact.`}
                   </p>
                 )}
               </>}
