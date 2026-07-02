@@ -101,6 +101,7 @@ function Attack() {
   const [posOffset, setPosOffset] = useState(12000);
   const [sigPower, setSigPower] = useState(150);
   const [gpsThreshold, setGpsThreshold] = useState<{ power_start_capture_w: number; power_full_capture_w: number } | null>(null);
+  const [gpsMissionThreshold, setGpsMissionThreshold] = useState<{ mission_impact_threshold_m: number | null } | null>(null);
   const [jamPower, setJamPower] = useState(100);
   const [jamFreq, setJamFreq] = useState(2200);
   const [jamType, setJamType] = useState("Barrage");
@@ -137,6 +138,35 @@ function Attack() {
   const [pdfPending, setPdfPending] = useState(false);
   const [sensitivityLoading, setSensitivityLoading] = useState(false);
   const [sensitivityFailed, setSensitivityFailed] = useState(false);
+
+  useEffect(() => {
+    if (attack !== "gps-spoof" || !activeConfig) { setGpsMissionThreshold(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiFetch("/api/gps_mission_threshold", {
+          method: "POST",
+          body: JSON.stringify({
+            satellite_name: activeName,
+            satellite_config: activeConfig,
+            altitude_km: (activeConfig as any)?.altitude_km,
+            threat_actor_profile: ACTOR_MAP[actor],
+            severity: severity / 100,
+            signal_power_watts: sigPower,
+          }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!cancelled && data && data.success) {
+          setGpsMissionThreshold({ mission_impact_threshold_m: data.mission_impact_threshold_m });
+        } else if (!cancelled) {
+          setGpsMissionThreshold(null);
+        }
+      } catch {
+        if (!cancelled) setGpsMissionThreshold(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [attack, activeName, activeConfig, actor, severity, sigPower]);
 
   useEffect(() => {
     if (attack !== "gps-spoof" || !activeConfig) { setGpsThreshold(null); return; }
@@ -419,6 +449,15 @@ function Attack() {
                     {Math.abs(gpsThreshold.power_full_capture_w - gpsThreshold.power_start_capture_w) < 0.01 * Math.max(gpsThreshold.power_start_capture_w, 1)
                       ? `Capture threshold for ${activeName ?? "this target"}: ~${gpsThreshold.power_start_capture_w >= 1000 ? (gpsThreshold.power_start_capture_w/1000).toFixed(1)+" kW" : gpsThreshold.power_start_capture_w.toFixed(1)+" W"}. Below this, the spoof cannot capture the receiver at this altitude.`
                       : `Capture threshold for ${activeName ?? "this target"}: ~${gpsThreshold.power_start_capture_w >= 1000 ? (gpsThreshold.power_start_capture_w/1000).toFixed(1)+" kW" : gpsThreshold.power_start_capture_w.toFixed(1)+" W"} to start · ~${gpsThreshold.power_full_capture_w >= 1000 ? (gpsThreshold.power_full_capture_w/1000).toFixed(1)+" kW" : gpsThreshold.power_full_capture_w.toFixed(1)+" W"} for full capture.`}
+                  </p>
+                )}
+                {gpsMissionThreshold && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {gpsMissionThreshold.mission_impact_threshold_m === null
+                      ? "Mission impact: not achievable for this target and actor at the current signal power (the receiver is not captured)."
+                      : gpsMissionThreshold.mission_impact_threshold_m >= 100000
+                        ? "Mission-impact offset: effectively unreachable for this actor (>100 km) — this actor cannot degrade the mission via GPS spoofing."
+                        : `Mission-impact offset: inject a position error exceeding ~${gpsMissionThreshold.mission_impact_threshold_m >= 1000 ? (gpsMissionThreshold.mission_impact_threshold_m/1000).toFixed(1)+" km" : Math.round(gpsMissionThreshold.mission_impact_threshold_m)+" m"} to degrade the mission. Below this, a successful spoof captures the receiver but causes no mission impact.`}
                   </p>
                 )}
               </>}
