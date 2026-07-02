@@ -101,6 +101,7 @@ function Attack() {
   const [posOffset, setPosOffset] = useState(12000);
   const [sigPower, setSigPower] = useState(150);
   const [gpsThreshold, setGpsThreshold] = useState<{ power_start_capture_w: number; power_full_capture_w: number } | null>(null);
+  const [gpsMissionThreshold, setGpsMissionThreshold] = useState<{ mission_impact_threshold_m: number | null } | null>(null);
   const [jamPower, setJamPower] = useState(100);
   const [jamFreq, setJamFreq] = useState(2200);
   const [jamType, setJamType] = useState("Barrage");
@@ -137,6 +138,35 @@ function Attack() {
   const [pdfPending, setPdfPending] = useState(false);
   const [sensitivityLoading, setSensitivityLoading] = useState(false);
   const [sensitivityFailed, setSensitivityFailed] = useState(false);
+
+  useEffect(() => {
+    if (attack !== "gps-spoof" || !activeConfig) { setGpsMissionThreshold(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiFetch("/api/gps_mission_threshold", {
+          method: "POST",
+          body: JSON.stringify({
+            satellite_name: activeName,
+            satellite_config: activeConfig,
+            altitude_km: (activeConfig as any)?.altitude_km,
+            threat_actor_profile: ACTOR_MAP[actor],
+            severity: severity / 100,
+            signal_power_watts: sigPower,
+          }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!cancelled && data && data.success) {
+          setGpsMissionThreshold({ mission_impact_threshold_m: data.mission_impact_threshold_m });
+        } else if (!cancelled) {
+          setGpsMissionThreshold(null);
+        }
+      } catch {
+        if (!cancelled) setGpsMissionThreshold(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [attack, activeName, activeConfig, actor, severity, sigPower]);
 
   useEffect(() => {
     if (attack !== "gps-spoof" || !activeConfig) { setGpsThreshold(null); return; }
